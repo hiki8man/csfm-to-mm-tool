@@ -3,6 +3,9 @@ from pathlib import Path
 from typing import BinaryIO
 from lib import ReadCstring
 from lib.CsfmDataClass import VariableDataIndex
+import logging
+
+logger = logging.getLogger('CsfmReader')
 
 def _get_bool(data: int, bits: int = 4):
     return tuple(bool((data >> i) & 1) for i in range(bits-1, -1, -1))
@@ -11,37 +14,98 @@ class _CsfmReader:
     
     def __init__(self) -> None:
         self.string_address : dict = {}
-        self.data_dict : dict = {"Metadata":{"Song Title":None,
+        self.data_dict : dict = {"Header":{"Magic":None,
+                                           "Version":None,
+                                           "Endianness":None,
+                                           "PointerSize":None,
+                                           "CreationTime":None,
+                                           "CharacterEncoding":None},
+
+                                 "CreatorInfo":{"PointerSize":None,
+                                                "Name":None,
+                                                "Platform":None,
+                                                "Architecture":None,
+                                                "Author":None,
+                                                "CommitHash":None,
+                                                "CommitTime":None,
+                                                "CommitNumber":None,
+                                                "Branch":None,
+                                                "CompileTime":None,
+                                                "BuildConfig":None},
+
+                                 "Metadata":{"Song Title":None,
                                              "Song File Name":None,
                                              "Movie File Name":None,
                                              "Background File Name":None,
                                              "Cover File Name":None,
                                              "Logo File Name":None},
+
                                  "Chart":{},
+
                                  "Debug":"Reserved"}
     
     def __getstring(self,address: bytes) -> str:
+        logger.debug(f"获取 {address} 的对应地址")
         address = struct.unpack("<q",address)[0]
         return self.string_address[address]
 
     def readcsfm(self, _path : Path) -> dict:
+        logger.info(f"正在读取 {_path}")
         with open(_path, "rb") as f:
-            #没人在意comfy版本信息，直接跳转读取data地址
-            #也许后期制作家用机生成的时候需要修改
-            f.seek(168)
-            data_offset = struct.unpack("<q",f.read(8))[0]
-            self.data_reader(f,data_offset)
+            self.head_reader(f)
+            self.creator_info_reader(f)
+            self.data_reader(f)
         return self.data_dict
 
-    def __getstring_dict(self,file: BinaryIO,data_offset: int):
+    def head_reader(self, file: BinaryIO) -> None:
+        logger.info("开始读取头部信息")
+        # [NOTE] 目前没有对数据是否为小端做实际检测，以后可能会出现bug
+        # 先调整逻辑判断便于后续修正
+        logger.debug("读取魔数信息")
+        self.data_dict["Header"]["Magic"] = file.read(4)
+        logger.debug("跳转到指定地址读取大小端信息")
+        file.seek(8) # 首先读取大小端，大端为B，小端为L
+        self.data_dict["Header"]["Endianness"] = struct.unpack("1sx", file.read(2))[0]
+        logger.debug("跳转回前面没有读取的部分读取版本号")
+        file.seek(4) # 跳回去读版本号
+        self.data_dict["Header"]["Version"] = "%i.%i".format(*struct.unpack("<hh", file.read(4)))
+        logger.debug("跳转到没有被读取的部分读取剩余的头部信息")
+        file.seek(10) # 跳到后面读剩下的值
+        self.data_dict["Header"]["PointerSize"] = struct.unpack("<h4x", file.read(6))[0]
+        self.data_dict["Header"]["CreationTime"] = struct.unpack("<q", file.read(8))[0]
+        self.data_dict["Header"]["CharacterEncoding"] = ReadCstring.ReadCstringFile2(file, file.tell())
+        pass
+
+    def creator_info_reader(self, file: BinaryIO) -> None:
+        offset = self.data_dict["Header"]["PointerSize"]
+        file.seek(offset)
+
+        self.data_dict["CreatorInfo"]["PointerSize"] = struct.unpack("<q", file.read(8))[0]
+        keys = list(self.data_dict["CreatorInfo"].keys())
+
+        for index in range(0, int(self.data_dict["CreatorInfo"]["PointerSize"]/8 - 1)):
+            file.seek(offset) # 跳转到指定位置
+            if index >= len(keys):
+                print(f"未知来源数据：{ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0])}")
+            elif keys[index] == "PointerSize":
+                pass
+            else:
+                self.data_dict["CreatorInfo"][keys[index]] = ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0])
+
+            offset += 8
+
+    def __getstring_dict(self,file: BinaryIO, data_offset: int):
         file.seek(data_offset)
         offset = struct.unpack("<q",file.read(8))[0]
         self.string_address = ReadCstring.ReadCstringFile(file,offset)
     
-    def data_reader(self, file: BinaryIO, offset: int) -> None:
-        self.__getstring_dict(file,offset)
-        for _ in range(3):
-            file.seek(offset)
+    def data_reader(self, file: BinaryIO) -> None:
+        file.seek(self.data_dict["Header"]["PointerSize"]+self.data_dict["CreatorInfo"]["PointerSize"])
+        data_len = struct.unpack("<q",file.read(8))[0]
+        data_offset = struct.unpack("<q",file.read(8))[0]
+        self.__getstring_dict(file,data_offset)
+        for _ in range(data_len):
+            file.seek(data_offset)
             string = self.__getstring(file.read(8))
             address = struct.unpack("<q",file.read(8))[0]
             match string:
@@ -50,9 +114,10 @@ class _CsfmReader:
                 case "Chart":
                     self.chart_reader(file, address)
                 case "Debug":
-                    #没必要读Debug
-                    continue
-            offset += 32
+                    self.data_dict["Debug"] = ReadCstring.ReadCstringFile2(file, address)
+                case unknow_info:
+                    print(f"未知的数据，将会被舍弃 {unknow_info}")
+            data_offset += 32
 
     def metadata_reader(self, file: BinaryIO, offset: int) -> None:
         address_dict = self.__get_data_address(file, offset)
@@ -74,7 +139,9 @@ class _CsfmReader:
                     self.data_dict["Metadata"][key] = Path(value)
                 case "Logo File Name":
                     self.data_dict["Metadata"][key] = Path(value)
-                case _:
+                case "Track Number":
+                    pass #不需要其他乱七八糟的数据
+                case "Disk Number":
                     pass #不需要其他乱七八糟的数据
 
     def chart_reader(self, file: BinaryIO, offset: int) -> None:
@@ -122,6 +189,9 @@ class _CsfmReader:
                     target_dict[key] = self.__unpack_data(file, value, "f", is_vet2=True)
                 case "Angle"|"Frequency"|"Amplitude"|"Distance":
                     target_dict[key] = self.__unpack_data(file, value, "f")
+                case unknow_param:
+                    print(f"未知参数: {unknow_param}")
+                    pass
 
     def __get_tempo_map(self, file: BinaryIO, offset: int) -> None:
         '''
@@ -145,7 +215,6 @@ class _CsfmReader:
                 case "Time Signature":
                     temp_map_dict[key] = self.__unpack_data(file, value, "h", is_vet2=True)
                 case "Flags":
-                    
                     data = self.__unpack_data(file, value, "i")
                     temp_map_dict[key] = tuple(_get_bool(value) for value in data if isinstance(value,int))
 
