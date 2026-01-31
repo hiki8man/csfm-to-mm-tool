@@ -86,7 +86,7 @@ class _CsfmReader:
         for index in range(0, int(self.data_dict["CreatorInfo"]["PointerSize"]/8 - 1)):
             file.seek(offset) # 跳转到指定位置
             if index >= len(keys):
-                print(f"未知来源数据：{ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0])}")
+                logger.debug(f"未知来源数据：{ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0])}")
             elif keys[index] == "PointerSize":
                 pass
             else:
@@ -163,7 +163,7 @@ class _CsfmReader:
                 case "Tempo Map":
                     self.data_dict["Chart"][key] = dict()
                     self.__get_tempo_map(file, offset)
-                case "Button Sound":
+                case "Button Sounds":
                     self.data_dict["Chart"][key] = tuple()
                     self.__get_button_sound_setting(file, offset)
                 case "Difficulty":
@@ -190,7 +190,7 @@ class _CsfmReader:
                 case "Angle"|"Frequency"|"Amplitude"|"Distance":
                     target_dict[key] = self.__unpack_data(file, value, "f")
                 case unknow_param:
-                    print(f"未知参数: {unknow_param}")
+                    logger.debug(f"未知参数: {unknow_param}")
                     pass
 
     def __get_tempo_map(self, file: BinaryIO, offset: int) -> None:
@@ -241,7 +241,7 @@ class _CsfmReader:
         '''
         length, address = self.__get_data_length(file, offset)
         file.seek(address)
-        self.data_dict["Chart"]["ButtonSound"] = struct.unpack("<iiii",file.read(length))
+        self.data_dict["Chart"]["ButtonSound"] = struct.unpack("<bbbb",file.read(length))
 
     def __get_difficulty_setting(self, file: BinaryIO, offset: int) -> None:
         '''

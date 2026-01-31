@@ -49,8 +49,9 @@ def ReadCstringDict(data: bytes, startoffset: int = 0) -> dict[int,str]:
             logger.debug("读取到填充数据，不再读取后续内容")
             #读取到填充直接跳出
             break
-        logger.debug(f"{address}地址对应的字符串{bytestring}")
+        
         address = startoffset + offset
+        logger.debug(f"{address}地址对应的字符串{bytestring}")
         CstringDict[address] = bytestring.decode("UTF-8")
         offset += len(bytestring) + 1
 
