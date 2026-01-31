@@ -241,7 +241,7 @@ class _CsfmReader:
         '''
         length, address = self.__get_data_length(file, offset)
         file.seek(address)
-        self.data_dict["Chart"]["ButtonSound"] = struct.unpack("<bbbb",file.read(length))
+        self.data_dict["Chart"]["Button Sounds"] = struct.unpack("<bbbb",file.read(length))
 
     def __get_difficulty_setting(self, file: BinaryIO, offset: int) -> None:
         '''
@@ -299,4 +299,5 @@ class _CsfmReader:
     
 
 def read_csfm(_file_path: Path) -> dict:
+
     return _CsfmReader().readcsfm(_file_path)
