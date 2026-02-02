@@ -68,15 +68,17 @@ class Note:
         dsc_note_id = self.__get_dsc_notetype()
         dsc_pos_x = self.__convert_250(self.position[0])
         dsc_pos_y = self.__convert_250(self.position[1])
-        dsc_angle = int(self.angle * 100)
+        dsc_angle = self.__convert_100(self.angle * 100)
         dsc_distance = self.__convert_250(self.distance)
 
-        binary_data = struct.pack("<8i",
-                                  DSCCommandID.TARGET,
-                                  dsc_note_id,
-                                  dsc_pos_x,dsc_pos_y,
-                                  dsc_angle,
-                                  dsc_distance,self.amplitude,self.frequency)
+        binary_data = struct.pack(
+            "<8i",
+            DSCCommandID.TARGET,
+            dsc_note_id,
+            dsc_pos_x,dsc_pos_y,
+            dsc_angle,
+            dsc_distance,self.amplitude,self.frequency
+            )
 
         return binary_data
     
@@ -104,5 +106,19 @@ class Note:
         else:
             return self.type
 
-    def __convert_250(self,value:float):
+    def __convert_250(self,value:float) -> int:
         return int(value * 250)
+    
+    def __convert_100(self,value:float) -> int:
+        return int(value * 100)
+    
+@dataclass
+class NoteF2X(Note):
+    end_tick : int
+    islong : bool
+    isdouble : bool
+    next_id : int
+    previous_id : int
+    reference_id : int
+
+    raise NotImplementedError("Not implemented")
