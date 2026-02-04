@@ -185,9 +185,9 @@ class BPM:
     flying_time_factor : float = 1.0
 
     @property
-    def flying_time(self) -> int: # 飞入时间精度为1ms，直接给出整数
+    def flying_time(self) -> float: # 飞入时间精度为1ms，直接给出整数
         bpm = self.tempo * self.flying_time_factor
-        return int(60 / bpm * 4 * 1000) 
+        return 60 / bpm * 4 * 1000
     
     @property
     def tick_time(self) -> float: # 时间精度为0.01ms，需要给小数
@@ -209,6 +209,13 @@ class Note:
     distance : float
 
     def __post_init__(self):
+        if self.isproperties == False:
+            self.position = (((self.tick + 192) % 384) * 4 + 192,768)
+            self.angle = 0.00
+            self.frequency = -2
+            self.amplitude = 500
+            self.distance = 1200
+
         self.amplitude = int(self.amplitude)
         self.frequency = int(self.frequency)
 

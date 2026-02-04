@@ -79,7 +79,7 @@ class TickManager:
         self.bpm_manager:BPMManager = _manager
         self.target_flying_time:int = -1
         
-    def tick_to_time(self, tick:int, offset) -> tuple[dict[int,bytes], int]:
+    def tick_to_time(self, tick:int, offset, count) -> tuple[dict[int,bytes], int]:
         """
         计算给定 tick 对应的时间与飞入时间。
         规则：
@@ -97,7 +97,7 @@ class TickManager:
         for i in range(len(self.bpm_manager.data_list)):
             bpm = self.bpm_manager.data_list[i]
             if i == 0:
-                pre_bpm = BPM(tempo=240000)
+                pre_bpm = BPM(tempo=-1) #用来标记在起始位置使用了变速
                 cur_bpm = bpm
             elif cur_bpm.tempo == bpm.tempo and cur_bpm.flying_time_factor == bpm.flying_time_factor:
                 # 出现了新的bpm但没有产生变化，跳过
@@ -121,7 +121,7 @@ class TickManager:
             last_change_time += pre_bpm.tick_time * (cur_bpm.tick - pre_bpm.tick) if cur_bpm.tick != 0 else cur_bpm.tick_time * (cur_bpm.tick - pre_bpm.tick)
     
         after_change_tick = tick - cur_bpm.tick
-        if after_change_tick >= 192:
+        if after_change_tick > 192:
             """
             太好了是无BPM变速我们有救了
             """
@@ -131,6 +131,11 @@ class TickManager:
             变速过程中插入新的
             '''
             flying_time = pre_bpm.flying_time
+        elif pre_bpm.tempo == -1:
+            '''
+            禁区放置Note，根据Comfy的行为使用0.1ms为单位处理Notes
+            '''
+            flying_time = cur_bpm.flying_time * (after_change_tick / 192) - count * 0.1
         else:
             """
             变速给我去死啊啊啊啊啊啊啊
@@ -210,13 +215,16 @@ class DSCManager:
     
     def get_note_dict(self) -> dict[int,bytes]:
         note_dict = defaultdict(bytes)
+        count = 0 # 用于处理在禁区放置Note时计算时间
         for note_tuple in self.note_mananger.get_note():
+            
             tick = note_tuple[0].tick
             chart_offset_dsc= int(self.chart_offset * 1000 * 100) 
-            data_dict, time = self.tick_manager.tick_to_time(tick, chart_offset_dsc)
+            data_dict, time = self.tick_manager.tick_to_time(tick, chart_offset_dsc, count)
             for note in note_tuple:
                 data_dict[time] += note.dsc_data
             note_dict.update(data_dict)
+            count += 1
         return note_dict
 
     def get_dsc_dict(self) -> dict[int,bytes]:
