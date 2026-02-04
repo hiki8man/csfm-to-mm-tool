@@ -4,6 +4,7 @@ from enum import IntEnum, auto
 
 class DSCCommandID(IntEnum):
     TIME = 1
+    MIKU_DISP = 4
     CHANGE_FLELD = 14
     MOVIE_PLAY = 67
     MOVIE_DISP = 68
@@ -118,6 +119,18 @@ class DSCNoteID(IntEnum):
         
         raise ValueError(f"不支持的ChanceNote类型 {comfy_id}")
 
+class Difficulty(IntEnum):
+    EASY    = auto()
+    NORMAL  = auto()
+    HARD    = auto()
+    EXTREME = auto()
+    ENCORE  = auto()
+
+    EX_EASY    = auto()
+    EX_NORMAL  = auto()
+    EX_HARD    = auto()
+    EX_EXTREME = auto()
+    EX_ENCORE  = auto()
 
 @dataclass(frozen=True)
 class VariableDataIndex:

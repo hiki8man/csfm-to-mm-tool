@@ -1,5 +1,6 @@
 from lib.CsfmReader import read_csfm
 from lib.ConvertDSC import DSCManager
+from lib.CsfmDataClass import Difficulty
 from pathlib import Path
 from collections.abc import Generator
 import logging
@@ -21,19 +22,6 @@ def get_csfm_file() -> Generator[Path, None, None]:
         if re.match(r"\d+$",csfm_path.parent.name):
             yield csfm_path
 
-class Difficulty(enum.IntEnum):
-    EASY    = enum.auto()
-    NORMAL  = enum.auto()
-    HARD    = enum.auto()
-    EXTREME = enum.auto()
-    ENCORE  = enum.auto()
-
-    EX_EASY    = enum.auto()
-    EX_NORMAL  = enum.auto()
-    EX_HARD    = enum.auto()
-    EX_EXTREME = enum.auto()
-    EX_ENCORE  = enum.auto()
-
 @dataclass
 class ChartInfo:
     pv_id: int
@@ -47,6 +35,7 @@ class ChartInfo:
     ex_extreme: dict = field(default_factory=dict)
 
     def update_chart(self, info:dict) -> None:
+        # 将IsEx转换为Difficulty枚举
         diff_type:int = info["Difficulty"]["Type"]
         if info["Difficulty"]["IsEx"]:
             diff_type += 5
@@ -77,5 +66,5 @@ if __name__ == "__main__":
     file_path = Path("Untitled Chart6.csfm")
     csfm_data = read_csfm(file_path)
     dsc_managet = DSCManager()
-    dsc_managet.read_csfm_data(csfm_data["Chart"])
+    dsc_managet.read_csfm_data(csfm_data)
     dsc_managet.creat_dsc_file(2222,Path("output"))

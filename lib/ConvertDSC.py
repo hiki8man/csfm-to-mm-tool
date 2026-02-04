@@ -1,5 +1,5 @@
 from .CsfmReader import read_csfm
-from .CsfmDataClass import BPM,Note,DSCCommandID
+from .CsfmDataClass import BPM,Note,DSCCommandID,Difficulty
 from pathlib import Path
 from collections import defaultdict
 from pprint import pprint
@@ -127,13 +127,20 @@ class DSCManager:
         self.tick_manager : TickManager = TickManager(self.bpm_manager)
 
         self.on_bpm_change : bool = True
+        self.have_movie : bool = False
+        self.have_song : bool = False
 
         self.command_time_dict : dict[str,float] ={
             "song_offset":0.0,
             "movie_offset":0.0,
             "pv_end_time":0.0,}
 
-    def read_csfm_data(self, chart_data_dict : dict) -> None:
+    def read_csfm_data(self, csfm_data: dict) -> None:
+        chart_data_dict = csfm_data["Chart"]
+        # 检查文件是否存在，不存在的文件将offset设置为0
+        self.have_movie = csfm_data["Metadata"]["Movie File Name"] != None and csfm_data["Metadata"]["Movie File Name"].exists()
+        self.have_song = csfm_data["Metadata"]["Song File Name"] != None and csfm_data["Metadata"]["Song File Name"].exists()
+
         self.bpm_manager.read_bpm(chart_data_dict["Tempo Map"])
         self.note_mananger.read_note(chart_data_dict["Targets"])
         self.__updata_time_var_dict(chart_data_dict["Time"])
@@ -191,35 +198,39 @@ class DSCManager:
         return note_dict
 
     def __updata_time_var_dict(self,time_dict:dict) -> None:
-        if "Song Offset" in time_dict:
-            self.command_time_dict.update({"song_offset":time_dict["Song Offset"]})
-        if "Movie Offset" in time_dict:
-            self.command_time_dict.update({"movie_offset":time_dict["Movie Offset"]})
+        if "Song Offset" in time_dict: # 取相反数转换为dsc里面的单位时间
+            song_offset = -time_dict["Song Offset"] if self.have_song else 0.0
+            self.command_time_dict.update({"song_offset":song_offset})
+
+        if "Movie Offset" in time_dict: # 取相反数转换为dsc里面的单位时间
+            movie_offset = -time_dict["Movie Offset"] if self.have_movie else 0.0
+            self.command_time_dict.update({"movie_offset":movie_offset})
+
         if "Duration" in time_dict:
             self.command_time_dict.update({"pv_end_time":time_dict["Duration"]})
+
         self.__updata_chart_offset()
     
     def __updata_chart_offset(self) -> None:
         song_offset = self.command_time_dict["song_offset"]
         movie_offset = self.command_time_dict["movie_offset"]
-        if song_offset >= 0 and movie_offset >= 0:
-            self.chart_offset = 0.0
-        elif abs(song_offset) > abs(movie_offset):
-            self.chart_offset = abs(song_offset)
-        else:
-            self.chart_offset = abs(movie_offset)
+
+        min_offset = min(song_offset, movie_offset, 0.0)
+    
+        self.chart_offset = abs(min_offset)
         self.command_time_dict["song_offset"] = song_offset + self.chart_offset
         self.command_time_dict["movie_offset"] = movie_offset + self.chart_offset
-    
+
+
     def __updata_difficulty_str(self, diff_dict:dict) -> None:
         match diff_dict["Type"]:
-            case 0:
+            case Difficulty.EASY:
                 self.difficulty_str = "easy"
-            case 1:
+            case Difficulty.NORMAL:
                 self.difficulty_str = "normal"
-            case 2:
+            case Difficulty.HARD:
                 self.difficulty_str = "hard"
-            case 3:
+            case Difficulty.EXTREME:
                 self.difficulty_str = "extreme"
             case _:
                 self.difficulty_str = "unknow"
@@ -231,5 +242,5 @@ if __name__ == "__main__":
     file_path = Path("Untitled Chart6.csfm")
     csfm_data = read_csfm(file_path)
     dsc_managet = DSCManager()
-    dsc_managet.read_csfm_data(csfm_data["Chart"])
-    dsc_managet.creat_dsc_file(2222)
+    dsc_managet.read_csfm_data(csfm_data)
+    dsc_managet.creat_dsc_file(2222, Path("output"))
