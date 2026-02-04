@@ -139,9 +139,9 @@ class DSCManager:
         self.__updata_time_var_dict(chart_data_dict["Time"])
         self.__updata_difficulty_str(chart_data_dict["Difficulty"])
     
-    def creat_dsc_file(self, pv_id : int, dsc_head: bytes = DSC_HEAD) -> None:
-        DSC_FILE_NAME = "_".join(("pv",str(pv_id),self.difficulty_str))
-        DSC_PATH = Path("output").joinpath(f"{DSC_FILE_NAME}.dsc")
+    def creat_dsc_file(self, pv_id: int, export_path:Path, dsc_head: bytes = DSC_HEAD) -> None:
+        DSC_FILE_NAME = "_".join(("pv", str(pv_id), self.difficulty_str))
+        DSC_PATH = export_path.joinpath(f"{DSC_FILE_NAME}.dsc")
 
         with open(DSC_PATH,"wb+") as f:
             f.write(dsc_head)
