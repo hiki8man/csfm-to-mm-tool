@@ -132,6 +132,42 @@ class Difficulty(IntEnum):
     EX_EXTREME = auto()
     EX_ENCORE  = auto()
 
+@dataclass
+class ChartInfo:
+    pv_id: int
+
+    meta_data: dict = field(default_factory=dict)
+
+    easy: dict = field(default_factory=dict)
+    normal: dict = field(default_factory=dict)
+    hard: dict = field(default_factory=dict)
+    extreme: dict = field(default_factory=dict)
+    ex_extreme: dict = field(default_factory=dict)
+
+    def update_chart(self, info:dict) -> None:
+        # 将IsEx转换为Difficulty枚举
+        diff_type:int = info["Difficulty"]["Type"]
+        if info["Difficulty"]["IsEx"]:
+            diff_type += 5
+
+        if diff_type == Difficulty.EASY:
+            self.easy = info
+        elif diff_type == Difficulty.NORMAL:
+            self.normal = info
+        elif diff_type == Difficulty.HARD:
+            self.hard = info
+        elif diff_type == Difficulty.EXTREME:
+            self.extreme = info
+        elif diff_type == Difficulty.EX_EXTREME:
+            self.ex_extreme = info
+        else:
+            raise ValueError(f"未知的难度数: {diff_type}")
+    def update_meta(self, info:dict) -> None:
+        if info:
+            self.meta_data = info
+        else:
+            ValueError("元数据错误")
+
 @dataclass(frozen=True)
 class VariableDataIndex:
     item_size : int
