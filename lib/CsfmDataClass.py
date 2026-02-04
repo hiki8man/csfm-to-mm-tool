@@ -120,7 +120,7 @@ class DSCNoteID(IntEnum):
         raise ValueError(f"不支持的ChanceNote类型 {comfy_id}")
 
 class Difficulty(IntEnum):
-    EASY    = auto()
+    EASY    = 0
     NORMAL  = auto()
     HARD    = auto()
     EXTREME = auto()
