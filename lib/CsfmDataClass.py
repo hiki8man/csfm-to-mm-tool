@@ -14,7 +14,7 @@ class DSCCommandID(IntEnum):
     END = 0
 
 class ComfyNoteID(IntEnum):
-    TRIANGLE = auto()
+    TRIANGLE = 0
     SQUARE = auto()
     CROSS = auto()
     CIRCLE = auto()
@@ -136,13 +136,13 @@ class BPM:
     flying_time_factor : float = 1.0
 
     @property
-    def flying_time(self) -> int:
+    def flying_time(self) -> int: # 飞入时间精度为1ms，直接给出整数
         bpm = self.tempo * self.flying_time_factor
         return int(60 / bpm * 4 * 1000) 
     
     @property
-    def tick_time(self) -> int:
-        return int(60 * 1000 * 100 / self.tempo / 48)
+    def tick_time(self) -> float: # 时间精度为0.01ms，需要给小数
+        return round(60 * 1000 * 100 / self.tempo / 48, 2)
     
 @dataclass
 class Note:
