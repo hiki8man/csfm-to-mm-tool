@@ -155,7 +155,7 @@ class BPM:
     
     @property
     def tick_time(self) -> float: # 时间精度为0.01ms，需要给小数
-        return round(60 * 1000 * 100 / self.tempo / 48, 2)
+        return 60 * 1000 * 100 / self.tempo / 48
     
 @dataclass
 class Note:

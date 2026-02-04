@@ -138,8 +138,8 @@ class DSCManager:
     def read_csfm_data(self, csfm_data: dict) -> None:
         chart_data_dict = csfm_data["Chart"]
         # 检查文件是否存在，不存在的文件将offset设置为0
-        self.have_movie = csfm_data["Metadata"]["Movie File Name"] != None and csfm_data["Metadata"]["Movie File Name"].exists()
-        self.have_song = csfm_data["Metadata"]["Song File Name"] != None and csfm_data["Metadata"]["Song File Name"].exists()
+        self.have_movie = csfm_data["Metadata"]["Movie File Name"] and csfm_data["Metadata"]["Movie File Name"].exists()
+        self.have_song = csfm_data["Metadata"]["Song File Name"] and csfm_data["Metadata"]["Song File Name"].exists()
 
         self.bpm_manager.read_bpm(chart_data_dict["Tempo Map"])
         self.note_mananger.read_note(chart_data_dict["Targets"])
