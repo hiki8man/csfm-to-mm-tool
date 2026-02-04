@@ -57,7 +57,7 @@ class BPMManager:
         self.data_list : list[BPM] = []
 
     def check_last_data(self, tick : int) -> bool:
-        return len(self.data_list) == 0 and self.data_list[-1].tick <= tick
+        return len(self.data_list) > 0 and self.data_list[-1].tick <= tick
 
     def read_bpm(self, data_dict : dict) -> None:
         data_zip : zip = zip(data_dict["Tick"],
@@ -66,6 +66,8 @@ class BPMManager:
         self.data_list.clear()
         for data_tuple in data_zip:
             self.data_list.append(BPM(*data_tuple))
+        # 保证 BPM 点按 tick 升序排列，便于后续计算
+        self.data_list.sort(key=lambda bpm: bpm.tick)
 
 class TickManager:
     '''
@@ -77,35 +79,65 @@ class TickManager:
         self.bpm_manager:BPMManager = _manager
         self.target_flying_time:int = -1
         
-    def tick_to_time(self, tick:int) -> tuple[dict[int,bytes], int]:
-        pre_bpm = None
-        now_bpm = BPM()
-        last_change_time = 0
-        if self.bpm_manager.data_list == []:
-            raise ValueError("列表中无BPM变速")
+    def tick_to_time(self, tick:int, offset) -> tuple[dict[int,bytes], int]:
+        """
+        计算给定 tick 对应的时间与飞入时间。
+        规则：
+        - 每个 BPM 点在其所在 tick 处开始一段最长 192 tick 的线性变速（飞入时间线性插值）；
+        - 如果在 192 tick 内又出现新的 BPM，则在新 BPM 处
+          以“当前瞬时飞入时间”为起点，重新开始一段新的 192 tick 线性变速，保证平滑连续。
+        """
+        if not self.bpm_manager.data_list:
+            raise ValueError("没有读取到BPM表")
         
-        for bpm in self.bpm_manager.data_list:
-            if now_bpm != None:
-                pre_bpm = now_bpm
-            elif bpm.tick > tick:
-                break
-            now_bpm = bpm
-            if pre_bpm != None:
-                last_change_time += (now_bpm.tick - pre_bpm.tick) * pre_bpm.tick_time
+        cur_bpm:BPM = BPM()
+        pre_bpm:BPM = BPM()
+        last_change_time:float = 0.0
         
-        after_change_tick = tick - now_bpm.tick
-        if pre_bpm == None or after_change_tick >= 192:
+        for i in range(len(self.bpm_manager.data_list)):
+            bpm = self.bpm_manager.data_list[i]
+            if i == 0:
+                pre_bpm = BPM(tempo=240000)
+                cur_bpm = bpm
+            elif cur_bpm.tempo == bpm.tempo and cur_bpm.flying_time_factor == bpm.flying_time_factor:
+                # 出现了新的bpm但没有产生变化，跳过
+                continue
+            else:
+                if bpm.tick >= tick:
+                    # 当前note在新bpm前面，跳出循环
+                    break
+                
+                # 检查pre是否已执行完变速
+                pre_change_tick = bpm.tick - pre_bpm.tick
+                if pre_change_tick >= 192:
+                    pre_bpm = cur_bpm
+                else:
+                    real_pre_fly = pre_bpm.flying_time + (cur_bpm.flying_time - pre_bpm.flying_time) * (pre_change_tick / 192)
+                    real_pre_bpm = 240000/real_pre_fly
+                    pre_bpm = BPM(tick=cur_bpm.tick, tempo=real_pre_bpm)
+                
+                cur_bpm = bpm
+            
+            last_change_time += pre_bpm.tick_time * (cur_bpm.tick - pre_bpm.tick) if cur_bpm.tick != 0 else cur_bpm.tick_time * (cur_bpm.tick - pre_bpm.tick)
+    
+        after_change_tick = tick - cur_bpm.tick
+        if after_change_tick >= 192:
             """
             太好了是无BPM变速我们有救了
             """
-            flying_time = now_bpm.flying_time
+            flying_time = cur_bpm.flying_time
+        elif after_change_tick == 0:
+            '''
+            变速过程中插入新的
+            '''
+            flying_time = pre_bpm.flying_time
         else:
             """
             变速给我去死啊啊啊啊啊啊啊
             """
-            flying_time = pre_bpm.flying_time - (now_bpm.flying_time - pre_bpm.flying_time) * (192 / after_change_tick)
+            flying_time = pre_bpm.flying_time + (cur_bpm.flying_time - pre_bpm.flying_time) * (after_change_tick / 192)
 
-        time = int(now_bpm.tick_time * after_change_tick + last_change_time - (flying_time * 100))
+        time = int(cur_bpm.tick_time * after_change_tick + last_change_time - (flying_time * 100)) + offset
         return self.get_dsc_data(int(flying_time), time) , time
     
     def get_dsc_data(self, flying_time:int, time:int) -> dict[int,bytes]:
@@ -180,7 +212,8 @@ class DSCManager:
         note_dict = defaultdict(bytes)
         for note_tuple in self.note_mananger.get_note():
             tick = note_tuple[0].tick
-            data_dict, time = self.tick_manager.tick_to_time(tick)
+            chart_offset_dsc= int(self.chart_offset * 1000 * 100) 
+            data_dict, time = self.tick_manager.tick_to_time(tick, chart_offset_dsc)
             for note in note_tuple:
                 data_dict[time] += note.dsc_data
             note_dict.update(data_dict)
@@ -224,6 +257,8 @@ class DSCManager:
         
         if "movie_offset" in self.command_time_dict:
             self.command_time_dict["movie_offset"] = movie_offset + self.chart_offset
+        
+        pass
 
     def __updata_difficulty_str(self, diff_dict:dict) -> None:
         match diff_dict["Type"]:

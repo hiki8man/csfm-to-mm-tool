@@ -193,6 +193,7 @@ class BPM:
     def tick_time(self) -> float: # 时间精度为0.01ms，需要给小数
         return 60 * 1000 * 100 / self.tempo / 48
     
+    
 @dataclass
 class Note:
     tick : int
@@ -221,7 +222,7 @@ class Note:
         dsc_note_id = self.__get_dsc_notetype()
         dsc_pos_x = self.__convert_250(self.position[0])
         dsc_pos_y = self.__convert_250(self.position[1])
-        dsc_angle = self.__convert_100(self.angle * 100)
+        dsc_angle = self.__convert_1000(self.angle)
         dsc_distance = self.__convert_250(self.distance)
 
         binary_data = struct.pack(
@@ -259,8 +260,8 @@ class Note:
     def __convert_250(self,value:float) -> int:
         return int(value * 250)
     
-    def __convert_100(self,value:float) -> int:
-        return int(value * 100)
+    def __convert_1000(self,value:float) -> int:
+        return int(value * 1000)
     
 @dataclass
 class NoteF2X(Note):
