@@ -130,10 +130,7 @@ class DSCManager:
         self.have_movie : bool = False
         self.have_song : bool = False
 
-        self.command_time_dict : dict[str,float] ={
-            "song_offset":0.0,
-            "movie_offset":0.0,
-            "pv_end_time":0.0,}
+        self.command_time_dict : dict[str,float] ={}
 
     def read_csfm_data(self, csfm_data: dict) -> None:
         chart_data_dict = csfm_data["Chart"]
@@ -160,6 +157,9 @@ class DSCManager:
     
     def get_event_dict(self) -> dict[int,bytes]:
         event_dict = defaultdict(bytes)
+        # 添加默认指令
+        event_dict[0] += struct.pack("<2i",DSCCommandID.CHANGE_FLELD, 1) # 显示2D图
+        event_dict[0] += struct.pack("<3i",DSCCommandID.MIKU_DISP, 0, 0) # 将miku隐藏
         for key in self.command_time_dict.keys():
             match key:
                 case "song_offset":
@@ -198,12 +198,12 @@ class DSCManager:
         return note_dict
 
     def __updata_time_var_dict(self,time_dict:dict) -> None:
-        if "Song Offset" in time_dict: # 取相反数转换为dsc里面的单位时间
-            song_offset = -time_dict["Song Offset"] if self.have_song else 0.0
+        if self.have_song and "Song Offset" in time_dict: # 取相反数转换为dsc里面的单位时间
+            song_offset = -time_dict["Song Offset"]
             self.command_time_dict.update({"song_offset":song_offset})
 
-        if "Movie Offset" in time_dict: # 取相反数转换为dsc里面的单位时间
-            movie_offset = -time_dict["Movie Offset"] if self.have_movie else 0.0
+        if self.have_movie and "Movie Offset" in time_dict: # 取相反数转换为dsc里面的单位时间
+            movie_offset = -time_dict["Movie Offset"]
             self.command_time_dict.update({"movie_offset":movie_offset})
 
         if "Duration" in time_dict:
@@ -212,15 +212,18 @@ class DSCManager:
         self.__updata_chart_offset()
     
     def __updata_chart_offset(self) -> None:
-        song_offset = self.command_time_dict["song_offset"]
-        movie_offset = self.command_time_dict["movie_offset"]
+        song_offset = self.command_time_dict.get("song_offset", 0.0)
+        movie_offset = self.command_time_dict.get("movie_offset", 0.0)
 
         min_offset = min(song_offset, movie_offset, 0.0)
     
         self.chart_offset = abs(min_offset)
-        self.command_time_dict["song_offset"] = song_offset + self.chart_offset
-        self.command_time_dict["movie_offset"] = movie_offset + self.chart_offset
 
+        if "song_offset" in self.command_time_dict:
+            self.command_time_dict["song_offset"] = song_offset + self.chart_offset
+        
+        if "movie_offset" in self.command_time_dict:
+            self.command_time_dict["movie_offset"] = movie_offset + self.chart_offset
 
     def __updata_difficulty_str(self, diff_dict:dict) -> None:
         match diff_dict["Type"]:
