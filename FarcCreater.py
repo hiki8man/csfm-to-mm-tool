@@ -61,7 +61,8 @@ class spr_info:
     height:float
 
 class Farc:
-    def __init__(self, compression:Compression = Compression.ATI2) -> None:
+    def __init__(self, compression:Compression = Compression.RGBA) -> None:
+        txp_info._id_count = 0 # 初始化ID
         self.compression:Compression = compression
         self.texture_dict:dict[str, txp_info] = {}
         self.sprit_dict  :dict[str, spr_info] = {}
@@ -83,22 +84,28 @@ class Farc:
                 return info.id
         return -1
     
+    def _convert_to_texture(self, info:txp_info):
+        '''
+        新旧版本命名不一致，在这里进行统一处理
+        '''
+        if self.compression is Compression.ATI2:
+            if hasattr(kkdlib.txp.Texture,"py_ycbcr_from_rgba_gpu"): #type:ignore
+                return kkdlib.txp.Texture.py_ycbcr_from_rgba_gpu(info.width, info.height, info.data.tobytes()) #type:ignore
+            else:
+                return kkdlib.txp.Texture.encode_ycbcr(info.width, info.height, info.data.tobytes()) #type:ignore
+        else:
+            if hasattr(kkdlib.txp.Texture,"py_from_rgba_gpu"): #type:ignore
+                return kkdlib.txp.Texture.py_from_rgba_gpu(info.width, info.height, info.data.tobytes(), self.compression.to_kkdlib_format()) #type:ignore
+            else:
+                return kkdlib.txp.Texture.py_from_rgba(info.width, info.height, info.data.tobytes(), self.compression.to_kkdlib_format()) #type:ignore
     def export_farc(self, export_name:str, export_path:Path, aft_mode:bool=False) -> None:
         txp = kkdlib.txp.Set() #type:ignore
         name_list:list[str] = [] #记录Texture名称
-
         # 添加texture
         for name,info in self.texture_dict.items():
             name_list.append(name)
-
-            if self.compression is Compression.ATI2:
-                txp.add_file(
-                    kkdlib.txp.Texture.py_ycbcr_from_rgba_gpu(info.width, info.height, info.data.tobytes()) #type:ignore
-                    )
-            else:
-                txp.add_file(
-                    kkdlib.txp.Texture.py_from_rgba_gpu(info.width, info.height, info.data.tobytes(), self.compression.to_kkdlib_format())#type:ignore
-                    )
+            txp.add_file(self._convert_to_texture(info))
+   
         
         spr_bin = kkdlib.spr.Set() #type:ignore
         spr_bin.set_txp(txp, name_list)
@@ -158,7 +165,12 @@ def create_spr_sel_farc(pv_id:int, spr_path_dict:dict[str,Path], export_path:Pat
     farc.export_farc(f"spr_sel_pv{pv_id:03d}", export_path)
     
 if __name__ == "__main__":
-    image_info = {"bg_path":Path("background.jpg"),
-                "jk_path":Path("preview.png")}
+    image_info = {"bg_path":Path("SONG_BG_DUMMY.png"),
+                  "jk_path":Path("SONG_JK_DUMMY.png")}
 
-    create_spr_sel_farc(10086, image_info, Path("test"), Compression.BC7)
+    create_spr_sel_farc(10086, image_info, Path("test"), Compression.RGBA)
+
+    image_info = {"bg_path":Path("SONG_BG_DUMMY.png"),
+                  "jk_path":Path("SONG_JK_DUMMY.png")}
+
+    create_spr_sel_farc(10087, image_info, Path("test"), Compression.BC7)
