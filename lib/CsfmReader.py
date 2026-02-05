@@ -131,6 +131,16 @@ class _CsfmReader:
             match key:
                 case "Song Title":
                     self.data_dict["Metadata"][key] = value
+                case "Artist":
+                    self.data_dict["Metadata"][key] = value
+                case "Album":
+                    self.data_dict["Metadata"][key] = value
+                case "Lyricist":
+                    self.data_dict["Metadata"][key] = value
+                case "Arranger":
+                    self.data_dict["Metadata"][key] = value
+                case "Album":
+                    self.data_dict["Metadata"][key] = value
                 case "Song File Name":
                     self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Movie File Name":
@@ -142,9 +152,11 @@ class _CsfmReader:
                 case "Logo File Name":
                     self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Track Number":
-                    pass #不需要其他乱七八糟的数据
+                    self.data_dict["Metadata"][key] = value
                 case "Disk Number":
-                    pass #不需要其他乱七八糟的数据
+                    self.data_dict["Metadata"][key] = value
+                case __:
+                    logger.info(f"未知数据：{key}")
 
     def chart_reader(self, file: BinaryIO, offset: int) -> None:
         address_dict = self.__get_data_address(file, offset)
@@ -155,6 +167,8 @@ class _CsfmReader:
             offset = struct.unpack("<q",value_address)[0]
             match key:
                 case "Scale":
+                    self.data_dict["Chart"][key] = dict()
+                    self.__get_scale_setting(file, offset)
                     pass #不明数据，暂不读取
                 case "Time":
                     self.data_dict["Chart"][key] = dict()
@@ -171,6 +185,25 @@ class _CsfmReader:
                 case "Difficulty":
                     self.data_dict["Chart"][key] = dict()
                     self.__get_difficulty_setting(file, offset)
+                case __:
+                    logger.info(f"未知数据：{key}")
+
+    def __get_scale_setting(self, file: BinaryIO, offset: int) -> None:
+        file.seek(offset)
+        scale_dict = self.data_dict["Chart"]["Scale"]
+
+        button_type_lenght = struct.unpack("<q",file.read(8))[0]
+        button_type_address = struct.unpack("<q",file.read(8))[0]
+
+        scale_dict["TicksPerBeat"] = struct.unpack("<ii",file.read(8))[0]
+        scale_dict["PlacementAreaSize"] = struct.unpack("<ff",file.read(8))
+        scale_dict["FullAngleRotation"] = struct.unpack("<ff",file.read(8))[0]
+        
+        scale_dict["ButtonTypeNames"] = list()
+        
+        for i in range(button_type_lenght):
+            file.seek(button_type_address + i * 8)
+            scale_dict["ButtonTypeNames"].append(ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0]))
 
     def __get_target(self, file: BinaryIO, offset: int) -> None:
         '''
@@ -183,14 +216,19 @@ class _CsfmReader:
             match key:
                 case "Tick"|"EndTick"|"NextID"|"PreviousID"|"ReferenceID":
                     target_dict[key] = self.__unpack_data(file, value, "i")
+
                 case "Type":
                     target_dict[key] = self.__unpack_data(file, value, "b")
+
                 case "Properties"|"Hold"|"Chain"|"Chance"|"Double"|"Long"|"Rush"|"Link":
                     target_dict[key] = self.__unpack_data(file, value, "?")
+
                 case "Position":
                     target_dict[key] = self.__unpack_data(file, value, "f", is_vet2=True)
+
                 case "Angle"|"Frequency"|"Amplitude"|"Distance":
                     target_dict[key] = self.__unpack_data(file, value, "f")
+
                 case unknow_param:
                     logger.info(f"未知参数: {unknow_param}")
                     pass
