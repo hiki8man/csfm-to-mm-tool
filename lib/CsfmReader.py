@@ -14,35 +14,36 @@ class _CsfmReader:
     
     def __init__(self) -> None:
         self.string_address : dict = {}
-        self.data_dict : dict = {"Header":{"Magic":None,
-                                           "Version":None,
-                                           "Endianness":None,
-                                           "PointerSize":None,
-                                           "CreationTime":None,
-                                           "CharacterEncoding":None},
+        self.data_dict : dict = {
+            "Header":{"Magic":None,
+                      "Version":None,
+                      "Endianness":None,
+                      "PointerSize":None,
+                      "CreationTime":None,
+                      "CharacterEncoding":None},
 
-                                 "CreatorInfo":{"PointerSize":None,
-                                                "Name":None,
-                                                "Platform":None,
-                                                "Architecture":None,
-                                                "Author":None,
-                                                "CommitHash":None,
-                                                "CommitTime":None,
-                                                "CommitNumber":None,
-                                                "Branch":None,
-                                                "CompileTime":None,
-                                                "BuildConfig":None},
+            "CreatorInfo":{"PointerSize":None,
+                           "Name":None,
+                           "Platform":None,
+                           "Architecture":None,
+                           "Author":None,
+                           "CommitHash":None,
+                           "CommitTime":None,
+                           "CommitNumber":None,
+                           "Branch":None,
+                           "CompileTime":None,
+                           "BuildConfig":None},
 
-                                 "Metadata":{"Song Title":None,
-                                             "Song File Name":None,
-                                             "Movie File Name":None,
-                                             "Background File Name":None,
-                                             "Cover File Name":None,
-                                             "Logo File Name":None},
+            "Metadata":{"Song Title":None,
+                        "Song File Name":None,
+                        "Movie File Name":None,
+                        "Background File Name":None,
+                        "Cover File Name":None,
+                        "Logo File Name":None},
 
-                                 "Chart":{},
+            "Chart":{},
 
-                                 "Debug":"Reserved"}
+            "Debug":"Reserved"}
         self.parent_path = Path()
     
     def __getstring(self,address: bytes) -> str:
@@ -169,7 +170,6 @@ class _CsfmReader:
                 case "Scale":
                     self.data_dict["Chart"][key] = dict()
                     self.__get_scale_setting(file, offset)
-                    pass #不明数据，暂不读取
                 case "Time":
                     self.data_dict["Chart"][key] = dict()
                     self.__get_time_setting(file, offset)
@@ -290,9 +290,10 @@ class _CsfmReader:
         file.seek(offset)
         file_data = file.read(4)
         data = struct.unpack("b?bb",file_data)
-        self.data_dict["Chart"]["Difficulty"] = {"Type":data[0],
-                                                 "IsEx":data[1],
-                                                 "Level":f"{data[2]:02}_{data[3]}"}
+        self.data_dict["Chart"]["Difficulty"] = {
+            "Type":data[0],
+            "IsEx":data[1],
+            "Level":f"{data[2]:02}_{data[3]}"}
     
     def __get_timeline_data(self, file: BinaryIO, offset: int) -> dict[str,VariableDataIndex]:
         '''
