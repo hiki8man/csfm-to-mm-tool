@@ -64,13 +64,13 @@ class _CsfmReader:
         # [NOTE] 目前没有对数据是否为小端做实际检测，以后可能会出现bug
         # 先调整逻辑判断便于后续修正
         logger.debug("读取魔数信息")
-        self.data_dict["Header"]["Magic"] = file.read(4)
+        self.data_dict["Header"]["Magic"] = file.read(4).decode()
         logger.debug("跳转到指定地址读取大小端信息")
         file.seek(8) # 首先读取大小端，大端为B，小端为L
-        self.data_dict["Header"]["Endianness"] = struct.unpack("1sx", file.read(2))[0]
+        self.data_dict["Header"]["Endianness"] = struct.unpack("1sx", file.read(2))[0].decode()
         logger.debug("跳转回前面没有读取的部分读取版本号")
         file.seek(4) # 跳回去读版本号
-        self.data_dict["Header"]["Version"] = "%i.%i".format(*struct.unpack("<hh", file.read(4)))
+        self.data_dict["Header"]["Version"] = "{0}.{1}".format(*struct.unpack("<hh", file.read(4)))
         logger.debug("跳转到没有被读取的部分读取剩余的头部信息")
         file.seek(10) # 跳到后面读剩下的值
         self.data_dict["Header"]["PointerSize"] = struct.unpack("<h4x", file.read(6))[0]
