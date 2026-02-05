@@ -1,4 +1,4 @@
-from .CsfmReader import read_csfm
+
 from .CsfmDataClass import BPM,Note,DSCCommandID,Difficulty
 from pathlib import Path
 from collections import defaultdict
@@ -283,17 +283,3 @@ class DSCManager:
         if diff_dict['IsEx']:
             self.difficulty_str += "_1"
 
-
-if __name__ == "__main__":
-    import logging
-    logging.basicConfig(
-        format='{asctime} {levelname} [{name}]: {message}',
-        style='{',
-        level=logging.DEBUG,
-        handlers=[logging.StreamHandler()],
-    )
-    file_path = Path("Untitled Chart6.csfm")
-    csfm_data = read_csfm(file_path)
-    dsc_managet = DSCManager()
-    dsc_managet.read_csfm_data(csfm_data)
-    dsc_managet.creat_dsc_file(2222, Path("output"))

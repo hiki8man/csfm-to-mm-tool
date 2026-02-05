@@ -1,8 +1,10 @@
+from lib import ReadCstring
+from lib.CsfmDataClass import VariableDataIndex
 import struct
 from pathlib import Path
 from typing import BinaryIO
-from lib import ReadCstring
-from lib.CsfmDataClass import VariableDataIndex
+
+
 import logging
 
 logger = logging.getLogger('CsfmReader')
@@ -11,7 +13,7 @@ def _get_bool(data: int, bits: int = 4):
     return tuple(bool((data >> i) & 1) for i in range(bits-1, -1, -1))
 
 class _CsfmReader:
-    
+
     def __init__(self) -> None:
         self.string_address : dict = {}
         self.data_dict : dict = {
@@ -157,7 +159,7 @@ class _CsfmReader:
                 case "Disk Number":
                     self.data_dict["Metadata"][key] = value
                 case __:
-                    logger.info(f"未知数据：{key}")
+                    logger.info(f"未知Metadata数据：{key}")
 
     def chart_reader(self, file: BinaryIO, offset: int) -> None:
         address_dict = self.__get_data_address(file, offset)
@@ -185,8 +187,22 @@ class _CsfmReader:
                 case "Difficulty":
                     self.data_dict["Chart"][key] = dict()
                     self.__get_difficulty_setting(file, offset)
-                case __:
-                    logger.info(f"未知数据：{key}")
+                case "Events":
+                    self.data_dict["Chart"][key] = {"start_tick":[],"end_tick":[],"event_mode":[]}
+                    self.__get_events_setting(file, offset)
+                case unknow_key:
+                    logger.info(f"未知Chart数据：{unknow_key}")
+                    
+    def __get_events_setting(self, file: BinaryIO, offset: int) -> None:
+        file.seek(offset)
+        events_dict = self.data_dict["Chart"]["Events"]
+        count = struct.unpack("<4i",file.read(16))[0]
+        if count > 0:
+            for _ in range(count):
+                events_dict["start_tick"].append(struct.unpack("<i", file.read(4))[0])
+                events_dict["end_tick"].append(struct.unpack("<i", file.read(4))[0])
+                events_dict["event_mode"].append(struct.unpack("<i", file.read(4))[0])
+                file.seek(20,1)
 
     def __get_scale_setting(self, file: BinaryIO, offset: int) -> None:
         file.seek(offset)
