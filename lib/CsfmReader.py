@@ -43,6 +43,7 @@ class _CsfmReader:
                                  "Chart":{},
 
                                  "Debug":"Reserved"}
+        self.parent_path = Path()
     
     def __getstring(self,address: bytes) -> str:
         logger.debug(f"获取 {address} 的对应地址")
@@ -51,6 +52,7 @@ class _CsfmReader:
 
     def readcsfm(self, _path : Path) -> dict:
         logger.info(f"正在读取 {_path}")
+        self.parent_path = _path.parent
         with open(_path, "rb") as f:
             self.head_reader(f)
             self.creator_info_reader(f)
@@ -86,7 +88,7 @@ class _CsfmReader:
         for index in range(0, int(self.data_dict["CreatorInfo"]["PointerSize"]/8 - 1)):
             file.seek(offset) # 跳转到指定位置
             if index >= len(keys):
-                logger.debug(f"未知来源数据：{ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0])}")
+                logger.info(f"未知来源数据：{ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0])}")
             elif keys[index] == "PointerSize":
                 pass
             else:
@@ -116,7 +118,7 @@ class _CsfmReader:
                 case "Debug":
                     self.data_dict["Debug"] = ReadCstring.ReadCstringFile2(file, address)
                 case unknow_info:
-                    print(f"未知的数据，将会被舍弃 {unknow_info}")
+                    logger.info(f"未知的数据，将会被舍弃 {unknow_info}")
             data_offset += 32
 
     def metadata_reader(self, file: BinaryIO, offset: int) -> None:
@@ -130,15 +132,15 @@ class _CsfmReader:
                 case "Song Title":
                     self.data_dict["Metadata"][key] = value
                 case "Song File Name":
-                    self.data_dict["Metadata"][key] = Path(value)
+                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Movie File Name":
-                    self.data_dict["Metadata"][key] = Path(value)
+                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Background File Name":
-                    self.data_dict["Metadata"][key] = Path(value)
+                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Cover File Name":
-                    self.data_dict["Metadata"][key] = Path(value)
+                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Logo File Name":
-                    self.data_dict["Metadata"][key] = Path(value)
+                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Track Number":
                     pass #不需要其他乱七八糟的数据
                 case "Disk Number":
@@ -179,18 +181,18 @@ class _CsfmReader:
         for key,value in data_dict.items():
             file.seek(value.address)
             match key:
-                case "Tick":
+                case "Tick"|"EndTick"|"NextID"|"PreviousID"|"ReferenceID":
                     target_dict[key] = self.__unpack_data(file, value, "i")
                 case "Type":
                     target_dict[key] = self.__unpack_data(file, value, "b")
-                case "Properties"|"Hold"|"Chain"|"Chance":
+                case "Properties"|"Hold"|"Chain"|"Chance"|"Double"|"Long"|"Rush"|"Link":
                     target_dict[key] = self.__unpack_data(file, value, "?")
                 case "Position":
                     target_dict[key] = self.__unpack_data(file, value, "f", is_vet2=True)
                 case "Angle"|"Frequency"|"Amplitude"|"Distance":
                     target_dict[key] = self.__unpack_data(file, value, "f")
                 case unknow_param:
-                    logger.debug(f"未知参数: {unknow_param}")
+                    logger.info(f"未知参数: {unknow_param}")
                     pass
 
     def __get_tempo_map(self, file: BinaryIO, offset: int) -> None:

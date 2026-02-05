@@ -285,6 +285,13 @@ class DSCManager:
 
 
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(
+        format='{asctime} {levelname} [{name}]: {message}',
+        style='{',
+        level=logging.DEBUG,
+        handlers=[logging.StreamHandler()],
+    )
     file_path = Path("Untitled Chart6.csfm")
     csfm_data = read_csfm(file_path)
     dsc_managet = DSCManager()

@@ -21,6 +21,7 @@ class ComfyNoteID(IntEnum):
     CIRCLE = auto()
     SLIDE_L = auto()
     SLIDE_R = auto()
+    STAR = auto()
 
 class DSCNoteID(IntEnum):
     # Diva FT
