@@ -131,20 +131,20 @@ class Farc:
 
 def fit_image(img:Image.Image, width:int, height:int, alpha_edge:bool=False) -> Image.Image:
     img = ImageOps.fit(img, (width, height),Image.Resampling.LANCZOS)
-    
+    # 需要扩展两像素出血
     import numpy as np
     img_array = np.array(img)
+    expand_data = np.pad(img_array, pad_width=((2,2),(2,2),(0,0)), mode='edge')
     if alpha_edge:
-        # 需要扩展三透明像素出血
-        expand_data = np.pad(img_array, pad_width=((3,3),(3,3),(0,0)), mode='edge')
+        # 将最边缘的像素也设置为透明
         alpha_img = Image.fromarray(expand_data)
         alpha_img.putalpha(0) # 设置alpha值为0（完全透明，但其仍然保留有边缘RGB信息）
+        img = img.crop((1, 1, img.size[0]-1, img.size[0]-1))
         alpha_img.paste(img, (3, 3))
         
         return alpha_img
     else:
         # 需要扩展两像素出血
-        expand_data = np.pad(img_array, pad_width=((2,2),(2,2),(0,0)), mode='edge')
         
         return Image.fromarray(expand_data)
 
@@ -155,7 +155,7 @@ def create_sel_texture_0(bg_path:Path, jk_path:Path|None = None) -> Image.Image:
         jk_path = bg_path
 
     bg_img = fit_image(Image.open(bg_path), 1280,720)
-    jk_img = fit_image(Image.open(jk_path), 500,500, True)
+    jk_img = fit_image(Image.open(jk_path), 502,502, True)
     # jk_img = fit_image(Image.open(jk_path), 500,500)
     
     img_data.paste(bg_img, (0, 0))
