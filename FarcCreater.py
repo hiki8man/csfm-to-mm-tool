@@ -98,6 +98,7 @@ class Farc:
                 return kkdlib.txp.Texture.py_from_rgba_gpu(info.width, info.height, info.data.tobytes(), self.compression.to_kkdlib_format()) #type:ignore
             else:
                 return kkdlib.txp.Texture.py_from_rgba(info.width, info.height, info.data.tobytes(), self.compression.to_kkdlib_format()) #type:ignore
+    
     def export_farc(self, export_name:str, export_path:Path, aft_mode:bool=False) -> None:
         txp = kkdlib.txp.Set() #type:ignore
         name_list:list[str] = [] #记录Texture名称
@@ -128,21 +129,24 @@ class Farc:
         farc.add_file_data(f"{export_name}.bin", spr_bin.to_buf())
         farc.write(str(export_path.joinpath(f"{export_name}.farc")), False, False)
 
-def fit_image(img:Image.Image, width:int, height:int, is_jk:bool=False) -> Image.Image:
+def fit_image(img:Image.Image, width:int, height:int, alpha_edge:bool=False) -> Image.Image:
     img = ImageOps.fit(img, (width, height),Image.Resampling.LANCZOS)
-    # 需要扩展两像素出血
+    
     import numpy as np
     img_array = np.array(img)
-    expand_data = np.pad(img_array, pad_width=((2,2),(2,2),(0,0)), mode='edge')
-    img = Image.fromarray(expand_data)
-    
-    if is_jk:
-        # 根据jitter的方案边缘需要设置透明
-        real_img = ImageOps.fit(img, (img.size[0] - 2, img.size[1] - 2))
-        img.putalpha(25)
-        img.paste(real_img, (1, 1))
-
-    return img
+    if alpha_edge:
+        # 需要扩展三透明像素出血
+        expand_data = np.pad(img_array, pad_width=((3,3),(3,3),(0,0)), mode='edge')
+        alpha_img = Image.fromarray(expand_data)
+        alpha_img.putalpha(1)
+        alpha_img.paste(img, (3, 3))
+        
+        return alpha_img
+    else:
+        # 需要扩展两像素出血
+        expand_data = np.pad(img_array, pad_width=((2,2),(2,2),(0,0)), mode='edge')
+        
+        return Image.fromarray(expand_data)
 
 def create_sel_texture_0(bg_path:Path, jk_path:Path|None = None) -> Image.Image:
     import numpy as np
@@ -155,7 +159,7 @@ def create_sel_texture_0(bg_path:Path, jk_path:Path|None = None) -> Image.Image:
     # jk_img = fit_image(Image.open(jk_path), 500,500)
     
     img_data.paste(bg_img, (0, 0))
-    img_data.paste(jk_img, (1287,3))
+    img_data.paste(jk_img, (1284,0))
     # img_data.paste(jk_img, (1284,0))
     
     return img_data.transpose(Transpose.FLIP_TOP_BOTTOM)
