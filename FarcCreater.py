@@ -138,7 +138,7 @@ def fit_image(img:Image.Image, width:int, height:int, alpha_edge:bool=False) -> 
         # 需要扩展三透明像素出血
         expand_data = np.pad(img_array, pad_width=((3,3),(3,3),(0,0)), mode='edge')
         alpha_img = Image.fromarray(expand_data)
-        alpha_img.putalpha(1)
+        alpha_img.putalpha(0) # 设置alpha值为0（完全透明，但其仍然保留有边缘RGB信息）
         alpha_img.paste(img, (3, 3))
         
         return alpha_img
