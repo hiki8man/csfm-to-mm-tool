@@ -223,10 +223,11 @@ class ChartInfo:
         spr_dict = {"bg_path":self.meta_data["bg_path"],
                        "jk_path":self.meta_data["jk_path"],
                        "logo_path":self.meta_data["logo_path"]}
-
-        spr_dict["bg_path"] = spr_dict["bg_path"] if spr_dict["bg_path"] else Path("default","SONG_BG_DUMMY.png").absolute()
-        spr_dict["jk_path"] = spr_dict["jk_path"] if spr_dict["jk_path"] else Path("default","SONG_JK_DUMMY.png").absolute()
-
+        
+        spr_dict["bg_path"] = spr_dict["bg_path"] if spr_dict["bg_path"] and spr_dict["bg_path"].exists() else Path("default","SONG_BG_DUMMY.png").absolute()
+        spr_dict["jk_path"] = spr_dict["jk_path"] if spr_dict["jk_path"] and spr_dict["jk_path"].exists() else Path("default","SONG_JK_DUMMY.png").absolute()
+        spr_dict["logo_path"] = spr_dict["logo_path"] if spr_dict["logo_path"] and spr_dict["logo_path"].exists() else None
+        
         FarcCreater.create_spr_sel_farc(self.pv_id,spr_dict,Path("output","rom","2d"))
         # 初始化
         logger.info("生成db并创建谱面")
@@ -252,9 +253,32 @@ class ChartInfo:
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.easy.length=1")
         else:
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.easy.length=0")
-    
-        # 添加encore
-        pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.encore.length=0")
+
+        # 添加normal
+        if self.normal:
+            dsc_managet.read_csfm_data(self.normal)
+            dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
+
+            check_slide = self.check_slide(self.normal)
+            pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "normal", 
+                                              number = 0, ex_tag = "", diff_rate = self.normal["Chart"]["Difficulty"]["Level"],
+                                              extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
+            pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.normal.length=1")
+        else:
+            pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.normal.length=0")
+
+        # 添加hard
+        if self.hard:
+            dsc_managet.read_csfm_data(self.hard)
+            dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
+
+            check_slide = self.check_slide(self.hard)
+            pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "hard", 
+                                              number = 0, ex_tag = "", diff_rate = self.hard["Chart"]["Difficulty"]["Level"],
+                                              extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
+            pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.hard.length=1")
+        else:
+            pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.hard.length=0")
         
         # 添加extreme
         extreme_count = 0
@@ -277,32 +301,10 @@ class ChartInfo:
                                               extra = 1, original = 0, is_slide = int(check_slide)).splitlines())
             extreme_count += 1
         pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.extreme.length={extreme_count}")
-        
-        # 添加hard
-        if self.hard:
-            dsc_managet.read_csfm_data(self.hard)
-            dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
 
-            check_slide = self.check_slide(self.hard)
-            pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "hard", 
-                                              number = 0, ex_tag = "", diff_rate = self.hard["Chart"]["Difficulty"]["Level"],
-                                              extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
-            pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.hard.length=1")
-        else:
-            pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.hard.length=0")
-        
-        # 添加normal
-        if self.normal:
-            dsc_managet.read_csfm_data(self.normal)
-            dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
+        # 添加encore
+        pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.encore.length=0")
 
-            check_slide = self.check_slide(self.normal)
-            pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "normal", 
-                                              number = 0, ex_tag = "", diff_rate = self.normal["Chart"]["Difficulty"]["Level"],
-                                              extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
-            pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.normal.length=1")
-        else:
-            pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.normal.length=0")
         
         #添加其他信息
         pv_db_list.append(f"pv_{self.pv_id:03d}.hidden_timing=0.3")
@@ -341,6 +343,11 @@ class ChartInfo:
         pv_db_list.append(f"pv_{self.pv_id:03d}.songinfo_en.lyrics=lyrics_name")
         pv_db_list.append(f"pv_{self.pv_id:03d}.songinfo_en.music=music_name")
         pv_db_list.append(f"pv_{self.pv_id:03d}.sudden_timing=0.6")
+        
+        pv_db_list.append(f"pv_{self.pv_id:03d}.sudden_timing=0.6")
+        # 添加背景图
+        pv_db_list.append(f"pv_{self.pv_id:03d}.field.01.spr_set_back=SPR_SEL_PV{self.pv_id:03d}")
+        pv_db_list.append(f"pv_{self.pv_id:03d}.field.length=1")
 
         return pv_db_list
 

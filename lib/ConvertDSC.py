@@ -168,8 +168,9 @@ class DSCManager:
         self.have_song : bool = False
 
         self.command_time_dict : dict[str,float] ={}
-
+    
     def read_csfm_data(self, csfm_data: dict) -> None:
+        self.__init__() # 初始化
         chart_data_dict = csfm_data["Chart"]
         # 检查文件是否存在，不存在的文件将offset设置为0
         self.have_movie = csfm_data["Metadata"]["Movie File Name"] and csfm_data["Metadata"]["Movie File Name"].exists()
