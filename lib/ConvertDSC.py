@@ -93,6 +93,7 @@ class TickManager:
         cur_bpm:BPM = BPM()
         pre_bpm:BPM = BPM()
         last_change_time:float = 0.0
+        last_change_index:int = 0
         
         for i in range(len(self.bpm_manager.data_list)):
             bpm = self.bpm_manager.data_list[i]
@@ -100,6 +101,14 @@ class TickManager:
                 pre_bpm = BPM(tempo=-1) #用来标记在起始位置使用了变速
                 cur_bpm = bpm
             elif cur_bpm.tempo == bpm.tempo and cur_bpm.flying_time_factor == bpm.flying_time_factor:
+                # 检查pre是否已执行完变速
+                pre_change_tick = cur_bpm.tick - pre_bpm.tick
+                if pre_change_tick >= 192:
+                    pre_bpm = cur_bpm
+                else:
+                    real_pre_fly = pre_bpm.flying_time + (cur_bpm.flying_time - pre_bpm.flying_time) * (pre_change_tick / 192)
+                    real_pre_bpm = 240000/real_pre_fly
+                    pre_bpm = BPM(tick=cur_bpm.tick, tempo=real_pre_bpm)
                 # 出现了新的bpm但没有产生变化，跳过
                 continue
             else:
@@ -108,7 +117,7 @@ class TickManager:
                     break
                 
                 # 检查pre是否已执行完变速
-                pre_change_tick = bpm.tick - pre_bpm.tick
+                pre_change_tick = cur_bpm.tick - pre_bpm.tick
                 if pre_change_tick >= 192:
                     pre_bpm = cur_bpm
                 else:
@@ -118,8 +127,13 @@ class TickManager:
                 
                 cur_bpm = bpm
             
-            last_change_time += pre_bpm.tick_time * (cur_bpm.tick - pre_bpm.tick) if cur_bpm.tick != 0 else cur_bpm.tick_time * (cur_bpm.tick - pre_bpm.tick)
-    
+            last_change_index = i
+
+        for i in range(last_change_index):
+            start_bpm = self.bpm_manager.data_list[i]
+            end_bpm = self.bpm_manager.data_list[i + 1]
+            last_change_time += start_bpm.tick_time * (end_bpm.tick - start_bpm.tick)
+        
         after_change_tick = tick - cur_bpm.tick
         if after_change_tick > 192:
             """
