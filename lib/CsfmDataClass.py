@@ -344,7 +344,6 @@ class ChartInfo:
         pv_db_list.append(f"pv_{self.pv_id:03d}.songinfo_en.music=music_name")
         pv_db_list.append(f"pv_{self.pv_id:03d}.sudden_timing=0.6")
         
-        pv_db_list.append(f"pv_{self.pv_id:03d}.sudden_timing=0.6")
         # 添加背景图
         pv_db_list.append(f"pv_{self.pv_id:03d}.field.01.spr_set_back=SPR_SEL_PV{self.pv_id:03d}")
         pv_db_list.append(f"pv_{self.pv_id:03d}.field.length=1")
@@ -462,4 +461,5 @@ class NoteF2X(Note):
     next_id : int
     
     def __post_init__(self):
+
         raise NotImplementedError("Not implemented")
