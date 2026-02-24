@@ -91,7 +91,7 @@ class DSCNoteID(IntEnum):
     STAR = 37
     STAR_LONG = 38
     STAR_W = 39
-    CHANGE_STAR = 40
+    CHANCE_STAR = 40
     LINK_STAR_START = 41
     LINK_STAR_END = 42
     STAR_RUSH = 43
@@ -100,21 +100,22 @@ class DSCNoteID(IntEnum):
     def get_normal_note_id(comfy_id:int) -> int:
         match comfy_id:
             case ComfyNoteID.TRIANGLE: return DSCNoteID.TRIANGLE
-            case ComfyNoteID.SQUARE: return DSCNoteID.SQUARE
-            case ComfyNoteID.CROSS: return DSCNoteID.CROSS
-            case ComfyNoteID.CIRCLE: return DSCNoteID.CIRCLE
-            case ComfyNoteID.SLIDE_L: return DSCNoteID.SLIDE_L
-            case ComfyNoteID.SLIDE_R: return DSCNoteID.SLIDE_R
+            case ComfyNoteID.SQUARE:   return DSCNoteID.SQUARE
+            case ComfyNoteID.CROSS:    return DSCNoteID.CROSS
+            case ComfyNoteID.CIRCLE:   return DSCNoteID.CIRCLE
+            case ComfyNoteID.SLIDE_L:  return DSCNoteID.SLIDE_L
+            case ComfyNoteID.SLIDE_R:  return DSCNoteID.SLIDE_R
+            case ComfyNoteID.STAR:     return DSCNoteID.STAR
 
-        raise ValueError(f"不支持的Note类型 {comfy_id}")
+        raise ValueError(f"不支持的NormalNote类型 {comfy_id}")
     
     @staticmethod
     def get_hold_note_id(comfy_id:int) -> int:
         match comfy_id:
             case ComfyNoteID.TRIANGLE: return DSCNoteID.TRIANGLE_HOLD
-            case ComfyNoteID.SQUARE: return DSCNoteID.SQUARE_HOLD
-            case ComfyNoteID.CROSS: return DSCNoteID.CROSS_HOLD
-            case ComfyNoteID.CIRCLE: return DSCNoteID.CIRCLE_HOLD
+            case ComfyNoteID.SQUARE:   return DSCNoteID.SQUARE_HOLD
+            case ComfyNoteID.CROSS:    return DSCNoteID.CROSS_HOLD
+            case ComfyNoteID.CIRCLE:   return DSCNoteID.CIRCLE_HOLD
         
         raise ValueError(f"不支持的HoldNote类型 {comfy_id}")
     
@@ -130,13 +131,48 @@ class DSCNoteID(IntEnum):
     def get_chance_note_id(comfy_id:int) -> int:
         match comfy_id:
             case ComfyNoteID.TRIANGLE: return DSCNoteID.CHANCE_TRIANGLE
-            case ComfyNoteID.SQUARE: return DSCNoteID.CHANCE_SQUARE
-            case ComfyNoteID.CROSS: return DSCNoteID.CHANCE_CROSS
-            case ComfyNoteID.CIRCLE: return DSCNoteID.CHANCE_CIRCLE
-            case ComfyNoteID.SLIDE_L: return DSCNoteID.CHANCE_SLIDE_L
-            case ComfyNoteID.SLIDE_R: return DSCNoteID.CHANCE_SLIDE_R
+            case ComfyNoteID.SQUARE:   return DSCNoteID.CHANCE_SQUARE
+            case ComfyNoteID.CROSS:    return DSCNoteID.CHANCE_CROSS
+            case ComfyNoteID.CIRCLE:   return DSCNoteID.CHANCE_CIRCLE
+            case ComfyNoteID.SLIDE_L:  return DSCNoteID.CHANCE_SLIDE_L
+            case ComfyNoteID.SLIDE_R:  return DSCNoteID.CHANCE_SLIDE_R
+            case ComfyNoteID.STAR:     return DSCNoteID.CHANCE_STAR
         
         raise ValueError(f"不支持的ChanceNote类型 {comfy_id}")
+
+    @staticmethod
+    def get_long_note_id(comfy_id:int) -> int:
+        match comfy_id:
+            case ComfyNoteID.TRIANGLE: return DSCNoteID.TRIANGLE_LONG
+            case ComfyNoteID.SQUARE:   return DSCNoteID.SQUARE_LONG
+            case ComfyNoteID.CROSS:    return DSCNoteID.CROSS_LONG
+            case ComfyNoteID.CIRCLE:   return DSCNoteID.CIRCLE_LONG
+            case ComfyNoteID.STAR:     return DSCNoteID.STAR_LONG
+        
+        raise ValueError(f"不支持的LongNote类型 {comfy_id}")
+
+    @staticmethod
+    def get_double_note_id(comfy_id:int) -> int:
+        match comfy_id:
+            case ComfyNoteID.TRIANGLE: return DSCNoteID.UP_W
+            case ComfyNoteID.SQUARE:   return DSCNoteID.LEFT_W
+            case ComfyNoteID.CROSS:    return DSCNoteID.DOWN_W
+            case ComfyNoteID.CIRCLE:   return DSCNoteID.RIGHT_W
+            case ComfyNoteID.STAR:     return DSCNoteID.STAR_W
+        
+        raise ValueError(f"不支持的DoubleNote类型 {comfy_id}")
+    
+    @staticmethod
+    def get_rush_note_id(comfy_id:int) -> int:
+        match comfy_id:
+            case ComfyNoteID.TRIANGLE: return DSCNoteID.TRIANGLE_RUSH
+            case ComfyNoteID.SQUARE:   return DSCNoteID.SQUARE_RUSH
+            case ComfyNoteID.CROSS:    return DSCNoteID.CROSS_RUSH
+            case ComfyNoteID.CIRCLE:   return DSCNoteID.CIRCLE_RUSH
+            case ComfyNoteID.STAR:     return DSCNoteID.STAR_RUSH
+        
+        raise ValueError(f"不支持的RushNote类型 {comfy_id}")
+
 
 class Difficulty(IntEnum):
     EASY    = 0
@@ -435,17 +471,6 @@ class Note:
         else:
             return DSCNoteID.get_normal_note_id(comfy_id=self.type)
 
-    def __dsc_note_id(self) -> int:
-        '''
-        将id转换为dsc的id
-        '''
-        if self.type == 1:
-            return 3
-        elif self.type == 3:
-            return 1
-        else:
-            return self.type
-
     def __convert_250(self,value:float) -> int:
         return int(value * 250)
     
@@ -461,5 +486,19 @@ class NoteF2X(Note):
     next_id : int
     
     def __post_init__(self):
-
         raise NotImplementedError("Not implemented")
+    
+    def __get_dsc_notetype(self) -> int:
+        if self.ishold:
+            return DSCNoteID.get_hold_note_id(comfy_id=self.type)
+        elif self.ischance:
+            return DSCNoteID.get_chance_note_id(comfy_id=self.type)
+        elif self.ischain:
+            return DSCNoteID.get_chain_note_id(comfy_id=self.type)
+        elif self.islong:
+            raise NotImplementedError("需要处理长按Note")
+            return DSCNoteID.get_long_note_id(comfy_id=self.type)
+        elif self.isdouble:
+            return DSCNoteID.get_double_note_id(comfy_id=self.type)
+        else:
+            return DSCNoteID.get_normal_note_id(comfy_id=self.type)
