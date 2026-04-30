@@ -15,43 +15,8 @@ def _get_bool(data: int, bits: int = 4):
 class _CsfmReader:
 
     def __init__(self) -> None:
-        self.string_address : dict = {}
-        self.data_dict : ComfyFile = {
-            "Header":{"Magic":None,
-                      "Version":None,
-                      "Endianness":None,
-                      "PointerSize":0,
-                      "CreationTime":None,
-                      "CharacterEncoding":"UTF-8"},
-
-            "CreatorInfo":{"PointerSize":0,
-                           "Name":None,
-                           "Platform":None,
-                           "Architecture":None,
-                           "Author":None,
-                           "CommitHash":None,
-                           "CommitTime":None,
-                           "CommitNumber":None,
-                           "Branch":None,
-                           "CompileTime":None,
-                           "BuildConfig":None},
-
-            "MetaData":{"Song Title": None,
-                        "Artist": None,
-                        "Album": None,
-                        "Lyricist": None,
-                        "Arranger": None,
-                        "Track Number": None,
-                        "Disk Number": None,
-                        "Song File Name":  None,
-                        "Movie File Name": None,
-                        "Background File Name": None,
-                        "Cover File Name": None,
-                        "Logo File Name": None},
-
-            "Chart":{},
-
-            "Debug":"Reserved"}
+        self.string_address: dict = {}
+        self.data_dict: ComfyFile = ComfyFile()
         self.parent_path = Path()
     
     def __getstring(self,address: bytes) -> str:
@@ -73,36 +38,36 @@ class _CsfmReader:
         # [NOTE] 目前没有对数据是否为小端做实际检测，以后可能会出现bug
         # 先调整逻辑判断便于后续修正
         logger.debug("读取魔数信息")
-        self.data_dict["Header"]["Magic"] = file.read(4).decode()
+        self.data_dict.Header["Magic"] = file.read(4).decode()
         logger.debug("跳转到指定地址读取大小端信息")
         file.seek(8) # 首先读取大小端，大端为B，小端为L
-        self.data_dict["Header"]["Endianness"] = struct.unpack("1sx", file.read(2))[0].decode()
+        self.data_dict.Header["Endianness"] = struct.unpack("1sx", file.read(2))[0].decode()
         logger.debug("跳转回前面没有读取的部分读取版本号")
         file.seek(4) # 跳回去读版本号
-        self.data_dict["Header"]["Version"] = "{0}.{1}".format(*struct.unpack("<hh", file.read(4)))
+        self.data_dict.Header["Version"] = "{0}.{1}".format(*struct.unpack("<hh", file.read(4)))
         logger.debug("跳转到没有被读取的部分读取剩余的头部信息")
         file.seek(10) # 跳到后面读剩下的值
-        self.data_dict["Header"]["PointerSize"] = struct.unpack("<h4x", file.read(6))[0]
-        self.data_dict["Header"]["CreationTime"] = struct.unpack("<q", file.read(8))[0]
-        self.data_dict["Header"]["CharacterEncoding"] = ReadCstring.ReadStrFromFile(file, file.tell())
+        self.data_dict.Header["PointerSize"] = struct.unpack("<h4x", file.read(6))[0]
+        self.data_dict.Header["CreationTime"] = struct.unpack("<q", file.read(8))[0]
+        self.data_dict.Header["CharacterEncoding"] = ReadCstring.ReadStrFromFile(file, file.tell())
         pass
 
     def creator_info_reader(self, file: BinaryIO) -> None:
-        offset = self.data_dict["Header"]["PointerSize"]
+        offset = self.data_dict.Header["PointerSize"]
 
         file.seek(offset)
 
-        self.data_dict["CreatorInfo"]["PointerSize"] = struct.unpack("<q", file.read(8))[0]
-        keys = list(self.data_dict["CreatorInfo"].keys())
+        self.data_dict.CreatorInfo["PointerSize"] = struct.unpack("<q", file.read(8))[0]
+        keys = list(self.data_dict.CreatorInfo.keys())
 
-        for index in range(0, int(self.data_dict["CreatorInfo"]["PointerSize"]/8 - 1)):
+        for index in range(0, int(self.data_dict.CreatorInfo["PointerSize"]/8 - 1)):
             file.seek(offset) # 跳转到指定位置
             if index >= len(keys):
-                logger.info(f"未知来源数据：{ReadCstring.ReadStrFromFile(file, struct.unpack("<q", file.read(8))[0], self.data_dict["Header"]["CharacterEncoding"] )}")
+                logger.info(f"未知来源数据：{ReadCstring.ReadStrFromFile(file, struct.unpack("<q", file.read(8))[0], self.data_dict.Header["CharacterEncoding"] )}")
             elif keys[index] == "PointerSize":
                 pass
             else:
-                self.data_dict["CreatorInfo"][keys[index]] = ReadCstring.ReadStrFromFile(file, struct.unpack("<q", file.read(8))[0], self.data_dict["Header"]["CharacterEncoding"] )
+                self.data_dict.CreatorInfo[keys[index]] = ReadCstring.ReadStrFromFile(file, struct.unpack("<q", file.read(8))[0], self.data_dict.Header["CharacterEncoding"] )
 
             offset += 8
 
@@ -114,10 +79,10 @@ class _CsfmReader:
         if offset == None:
             raise BufferError("数据不完整")
 
-        self.string_address = ReadCstring.ReadDictFromFile(file, offset, self.data_dict["Header"]["CharacterEncoding"])
+        self.string_address = ReadCstring.ReadDictFromFile(file, offset, self.data_dict.Header["CharacterEncoding"])
     
     def data_reader(self, file: BinaryIO) -> None:
-        file.seek(self.data_dict["Header"]["PointerSize"] + self.data_dict["CreatorInfo"]["PointerSize"])
+        file.seek(self.data_dict.Header["PointerSize"] + self.data_dict.CreatorInfo["PointerSize"])
         data_len = struct.unpack("<q",file.read(8))[0]
         data_offset = struct.unpack("<q",file.read(8))[0]
         self.__getstring_dict(file,data_offset)
@@ -131,7 +96,7 @@ class _CsfmReader:
                 case "Chart":
                     self.chart_reader(file, address)
                 case "Debug":
-                    self.data_dict["Debug"] = ReadCstring.ReadStrFromFile(file, address, self.data_dict["Header"]["CharacterEncoding"] )
+                    self.data_dict.Debug = ReadCstring.ReadStrFromFile(file, address, self.data_dict.Header["CharacterEncoding"] )
                 case unknow_info:
                     logger.info(f"未知的数据，将会被舍弃 {unknow_info}")
             data_offset += 32
@@ -145,29 +110,29 @@ class _CsfmReader:
             value = self.__getstring(value_address)
             match key:
                 case "Song Title":
-                    self.data_dict["MetaData"][key] = value
+                    self.data_dict.MetaData[key] = value
                 case "Artist":
-                    self.data_dict["MetaData"][key] = value
+                    self.data_dict.MetaData[key] = value
                 case "Album":
-                    self.data_dict["MetaData"][key] = value
+                    self.data_dict.MetaData[key] = value
                 case "Lyricist":
-                    self.data_dict["MetaData"][key] = value
+                    self.data_dict.MetaData[key] = value
                 case "Arranger":
-                    self.data_dict["MetaData"][key] = value
+                    self.data_dict.MetaData[key] = value
                 case "Song File Name":
-                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict.MetaData[key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Movie File Name":
-                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict.MetaData[key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Background File Name":
-                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict.MetaData[key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Cover File Name":
-                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict.MetaData[key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Logo File Name":
-                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict.MetaData[key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Track Number":
-                    self.data_dict["MetaData"][key] = value
+                    self.data_dict.MetaData[key] = value
                 case "Disk Number":
-                    self.data_dict["MetaData"][key] = value
+                    self.data_dict.MetaData[key] = value
                 case __:
                     logger.info(f"未知MetaData数据：{key}")
 
@@ -180,32 +145,32 @@ class _CsfmReader:
             offset = struct.unpack("<q",value_address)[0]
             match key:
                 case "Scale":
-                    self.data_dict["Chart"][key] = dict()
+                    self.data_dict.Chart[key] = dict()
                     self.__get_scale_setting(file, offset)
                 case "Time":
-                    self.data_dict["Chart"][key] = dict()
+                    self.data_dict.Chart[key] = dict()
                     self.__get_time_setting(file, offset)
                 case "Targets":
-                    self.data_dict["Chart"][key] = dict()
+                    self.data_dict.Chart[key] = dict()
                     self.__get_target(file, offset)
                 case "Tempo Map":
-                    self.data_dict["Chart"][key] = dict()
+                    self.data_dict.Chart[key] = dict()
                     self.__get_tempo_map(file, offset)
                 case "Button Sounds":
-                    self.data_dict["Chart"][key] = tuple()
+                    self.data_dict.Chart[key] = tuple()
                     self.__get_button_sound_setting(file, offset)
                 case "Difficulty":
-                    self.data_dict["Chart"][key] = dict()
+                    self.data_dict.Chart[key] = dict()
                     self.__get_difficulty_setting(file, offset)
                 case "Events":
-                    self.data_dict["Chart"][key] = {"start_tick":[],"end_tick":[],"event_mode":[]}
+                    self.data_dict.Chart[key] = {"start_tick":[],"end_tick":[],"event_mode":[]}
                     self.__get_events_setting(file, offset)
                 case unknow_key:
                     logger.info(f"未知Chart数据：{unknow_key}")
                     
     def __get_events_setting(self, file: BinaryIO, offset: int) -> None:
         file.seek(offset)
-        events_dict = self.data_dict["Chart"]["Events"]
+        events_dict = self.data_dict.Chart["Events"]
         count = struct.unpack("<4i",file.read(16))[0]
         if count > 0:
             for _ in range(count):
@@ -216,7 +181,7 @@ class _CsfmReader:
 
     def __get_scale_setting(self, file: BinaryIO, offset: int) -> None:
         file.seek(offset)
-        scale_dict = self.data_dict["Chart"]["Scale"]
+        scale_dict = self.data_dict.Chart["Scale"]
 
         button_type_lenght = struct.unpack("<q",file.read(8))[0]
         button_type_address = struct.unpack("<q",file.read(8))[0]
@@ -229,14 +194,14 @@ class _CsfmReader:
         
         for i in range(button_type_lenght):
             file.seek(button_type_address + i * 8)
-            scale_dict["ButtonTypeNames"].append(ReadCstring.ReadStrFromFile(file, struct.unpack("<q", file.read(8))[0], self.data_dict["Header"]["CharacterEncoding"]))
+            scale_dict["ButtonTypeNames"].append(ReadCstring.ReadStrFromFile(file, struct.unpack("<q", file.read(8))[0], self.data_dict.Header["CharacterEncoding"]))
 
     def __get_target(self, file: BinaryIO, offset: int) -> None:
         '''
         获取Note数据  
         '''
         data_dict = self.__get_timeline_data(file, offset)
-        target_dict = self.data_dict["Chart"]["Targets"]
+        target_dict = self.data_dict.Chart["Targets"]
         for key,value in data_dict.items():
             file.seek(value.address)
             match key:
@@ -270,7 +235,7 @@ class _CsfmReader:
                 第三位是拍号是否改变
         '''
         data_dict = self.__get_timeline_data(file, offset)
-        temp_map_dict = self.data_dict["Chart"]["Tempo Map"]
+        temp_map_dict = self.data_dict.Chart["Tempo Map"]
         for key,value in data_dict.items():
             file.seek(value.address)
             match key:
@@ -296,9 +261,9 @@ class _CsfmReader:
             key = self.__getstring(key_address)
             value = struct.unpack("<d",value_byte)[0]
             if key == "Duration" and value == 0.0:
-                self.data_dict["Chart"]["Time"][key] = 90.0
+                self.data_dict.Chart["Time"][key] = 90.0
             else:
-                self.data_dict["Chart"]["Time"][key] = value
+                self.data_dict.Chart["Time"][key] = value
 
     def __get_button_sound_setting(self, file: BinaryIO, offset: int) -> None:
         '''
@@ -307,7 +272,7 @@ class _CsfmReader:
         '''
         length, address = self.__get_data_length(file, offset)
         file.seek(address)
-        self.data_dict["Chart"]["Button Sounds"] = struct.unpack("<bbbb",file.read(length))
+        self.data_dict.Chart["Button Sounds"] = struct.unpack("<bbbb",file.read(length))
 
     def __get_difficulty_setting(self, file: BinaryIO, offset: int) -> None:
         '''
@@ -316,7 +281,7 @@ class _CsfmReader:
         file.seek(offset)
         file_data = file.read(4)
         data = struct.unpack("b?bb",file_data)
-        self.data_dict["Chart"]["Difficulty"] = {
+        self.data_dict.Chart["Difficulty"] = {
             "Type":data[0],
             "IsEx":data[1],
             "Level":f"{data[2]:02}_{data[3]}"}

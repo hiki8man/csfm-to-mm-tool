@@ -60,12 +60,54 @@ ComfyMetaData = TypedDict(
         }
     )
 
-class ComfyFile(TypedDict):
-    Header: ComfyFileHeader
-    CreatorInfo: ComfyCreatorInfo
-    MetaData: ComfyMetaData
-    Chart: dict[str, Any]
-    Debug: str
+@dataclass
+class ComfyFile:
+    Header: ComfyFileHeader = field(
+        default_factory=lambda: {
+            "Magic":None,
+            "Version":None,
+            "Endianness":None,
+            "PointerSize":0,
+            "CreationTime":None,
+            "CharacterEncoding":"UTF-8"
+            }
+        )
+    CreatorInfo: ComfyCreatorInfo = field(
+        default_factory=lambda: {
+            "PointerSize":0,
+            "Name":None,
+            "Platform":None,
+            "Architecture":None,
+            "Author":None,
+            "CommitHash":None,
+            "CommitTime":None,
+            "CommitNumber":None,
+            "Branch":None,
+            "CompileTime":None,
+            "BuildConfig":None
+            }
+        )
+
+    MetaData: ComfyMetaData = field(
+        default_factory=lambda: {
+            "Song Title": None,
+            "Artist": None,
+            "Album": None,
+            "Lyricist": None,
+            "Arranger": None,
+            "Track Number": None,
+            "Disk Number": None,
+            "Song File Name":  None,
+            "Movie File Name": None,
+            "Background File Name": None,
+            "Cover File Name": None,
+            "Logo File Name": None
+            }
+        )
+        
+
+    Chart: dict[str, Any] = field(default_factory=lambda: {})
+    Debug: str = "Reserved"
 
 class DSCCommandID(IntEnum):
     TIME = 1
@@ -238,16 +280,16 @@ class ChartInfo:
 
     meta_data: dict = field(default_factory=dict)
 
-    easy: dict = field(default_factory=dict)
-    normal: dict = field(default_factory=dict)
-    hard: dict = field(default_factory=dict)
-    extreme: dict = field(default_factory=dict)
-    ex_extreme: dict = field(default_factory=dict)
+    easy: ComfyFile = field(default_factory=ComfyFile)
+    normal: ComfyFile = field(default_factory=ComfyFile)
+    hard: ComfyFile = field(default_factory=ComfyFile)
+    extreme: ComfyFile = field(default_factory=ComfyFile)
+    ex_extreme: ComfyFile = field(default_factory=ComfyFile)
 
-    def update_chart(self, info) -> None:
+    def update_chart(self, info:ComfyFile) -> None:
         # 将IsEx转换为Difficulty枚举
-        diff_type:int = info["Chart"]["Difficulty"]["Type"]
-        if info["Chart"]["Difficulty"]["IsEx"]:
+        diff_type:int = info.Chart["Difficulty"]["Type"]
+        if info.Chart["Difficulty"]["IsEx"]:
             diff_type += 5
 
         if diff_type == Difficulty.EASY:
@@ -266,32 +308,32 @@ class ChartInfo:
     def update_meta(self, info:ComfyFile) -> None:
         if info:
             self.meta_data = {
-                "bpm":       int(info["Chart"]["Tempo Map"]["Tempo"][0]),
-                "sabi_start":info["Chart"]["Time"]["Song Preview Start"],
-                "sabi_play": info["Chart"]["Time"]["Song Preview Duration"],
+                "bpm":       int(info.Chart["Tempo Map"]["Tempo"][0]),
+                "sabi_start":info.Chart["Time"]["Song Preview Start"],
+                "sabi_play": info.Chart["Time"]["Song Preview Duration"],
                 
-                "song_path": info["MetaData"].get("Song File Name"),
-                "movie_path":info["MetaData"].get("Movie File Name"),
-                "song_title":info["MetaData"].get("Song Title", "名無し"),
+                "song_path": info.MetaData.get("Song File Name"),
+                "movie_path":info.MetaData.get("Movie File Name"),
+                "song_title":info.MetaData.get("Song Title", "名無し"),
                 
-                "arranger":info["MetaData"].get("Arranger", "名無し"),
-                "lyrics":info["MetaData"].get("Lyricist", "名無し"),
-                "music":info["MetaData"].get("Artist", "名無し"),
+                "arranger":info.MetaData.get("Arranger", "名無し"),
+                "lyrics":info.MetaData.get("Lyricist", "名無し"),
+                "music":info.MetaData.get("Artist", "名無し"),
                 
-                "bg_path":  info["MetaData"].get("Background File Name"),
-                "jk_path":  info["MetaData"].get("Cover File Name"),
-                "logo_path":info["MetaData"].get("Logo File Name")
+                "bg_path":  info.MetaData.get("Background File Name"),
+                "jk_path":  info.MetaData.get("Cover File Name"),
+                "logo_path":info.MetaData.get("Logo File Name")
                 }
         else:
             ValueError("元数据错误")
 
 
-    def check_slide(self, data:dict) -> bool:
-            return ComfyNoteID.SLIDE_L in data["Chart"]["Targets"]["Type"] or ComfyNoteID.SLIDE_R in data["Chart"]["Targets"]["Type"]
+    def check_slide(self, data:ComfyFile) -> bool:
+            return ComfyNoteID.SLIDE_L in data.Chart["Targets"]["Type"] or ComfyNoteID.SLIDE_R in data.Chart["Targets"]["Type"]
     
     def check_chance(self) -> bool:
         for chart_info in (self.easy,self.normal,self.hard,self.extreme,self.ex_extreme):
-            if chart_info and True in chart_info["Chart"]["Targets"]["Chance"]:
+            if chart_info and True in chart_info.Chart["Targets"]["Chance"]:
                 return True
         
         return False
@@ -329,7 +371,7 @@ class ChartInfo:
 
             check_slide = self.check_slide(self.easy)
             pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "easy", 
-                                              number = 0, ex_tag = "", diff_rate = self.easy["Chart"]["Difficulty"]["Level"],
+                                              number = 0, ex_tag = "", diff_rate = self.easy.Chart["Difficulty"]["Level"],
                                               extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.easy.length=1")
         else:
@@ -342,7 +384,7 @@ class ChartInfo:
 
             check_slide = self.check_slide(self.normal)
             pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "normal", 
-                                              number = 0, ex_tag = "", diff_rate = self.normal["Chart"]["Difficulty"]["Level"],
+                                              number = 0, ex_tag = "", diff_rate = self.normal.Chart["Difficulty"]["Level"],
                                               extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.normal.length=1")
         else:
@@ -355,7 +397,7 @@ class ChartInfo:
 
             check_slide = self.check_slide(self.hard)
             pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "hard", 
-                                              number = 0, ex_tag = "", diff_rate = self.hard["Chart"]["Difficulty"]["Level"],
+                                              number = 0, ex_tag = "", diff_rate = self.hard.Chart["Difficulty"]["Level"],
                                               extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.hard.length=1")
         else:
@@ -369,7 +411,7 @@ class ChartInfo:
 
             check_slide = self.check_slide(self.extreme)
             pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "extreme", 
-                                              number = extreme_count, ex_tag = "", diff_rate = self.extreme["Chart"]["Difficulty"]["Level"],
+                                              number = extreme_count, ex_tag = "", diff_rate = self.extreme.Chart["Difficulty"]["Level"],
                                               extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
             extreme_count += 1
         if self.ex_extreme:
@@ -378,7 +420,7 @@ class ChartInfo:
 
             check_slide = self.check_slide(self.ex_extreme)
             pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "extreme", 
-                                              number = extreme_count, ex_tag = "_1", diff_rate = self.ex_extreme["Chart"]["Difficulty"]["Level"],
+                                              number = extreme_count, ex_tag = "_1", diff_rate = self.ex_extreme.Chart["Difficulty"]["Level"],
                                               extra = 1, original = 0, is_slide = int(check_slide)).splitlines())
             extreme_count += 1
         pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.extreme.length={extreme_count}")

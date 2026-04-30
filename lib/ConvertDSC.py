@@ -1,5 +1,5 @@
 
-from .CsfmDataClass import BPM,Note,DSCCommandID,Difficulty,DSCNoteTime
+from .CsfmDataClass import BPM,Note,DSCCommandID,Difficulty,DSCNoteTime,ComfyFile
 from pathlib import Path
 from collections import defaultdict
 from pprint import pprint
@@ -178,12 +178,12 @@ class DSCManager:
 
         self.command_time_dict : dict[str,float] ={}
     
-    def read_csfm_data(self, csfm_data: dict) -> None:
+    def read_csfm_data(self, csfm_data: ComfyFile) -> None:
         self.__init__() # 初始化
-        chart_data_dict = csfm_data["Chart"]
+        chart_data_dict = csfm_data.Chart
         # 检查文件是否存在，不存在的文件将offset设置为0
-        self.have_movie = csfm_data["MetaData"]["Movie File Name"] and csfm_data["MetaData"]["Movie File Name"].exists()
-        self.have_song = csfm_data["MetaData"]["Song File Name"] and csfm_data["MetaData"]["Song File Name"].exists()
+        self.have_movie = csfm_data.MetaData["Movie File Name"] != None and csfm_data.MetaData["Movie File Name"].exists()
+        self.have_song = csfm_data.MetaData["Song File Name"] != None and csfm_data.MetaData["Song File Name"].exists()
 
         self.bpm_manager.read_bpm(chart_data_dict["Tempo Map"])
         self.note_mananger.read_note(chart_data_dict["Targets"])
