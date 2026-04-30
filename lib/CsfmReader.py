@@ -1,5 +1,5 @@
 from lib import ReadCstring
-from lib.CsfmDataClass import VariableDataIndex
+from lib.CsfmDataClass import VariableDataIndex, ComfyFile
 import struct
 from pathlib import Path
 from typing import BinaryIO
@@ -16,15 +16,15 @@ class _CsfmReader:
 
     def __init__(self) -> None:
         self.string_address : dict = {}
-        self.data_dict : dict = {
+        self.data_dict : ComfyFile = {
             "Header":{"Magic":None,
                       "Version":None,
                       "Endianness":None,
-                      "PointerSize":None,
+                      "PointerSize":0,
                       "CreationTime":None,
-                      "CharacterEncoding":None},
+                      "CharacterEncoding":"UTF-8"},
 
-            "CreatorInfo":{"PointerSize":None,
+            "CreatorInfo":{"PointerSize":0,
                            "Name":None,
                            "Platform":None,
                            "Architecture":None,
@@ -36,12 +36,18 @@ class _CsfmReader:
                            "CompileTime":None,
                            "BuildConfig":None},
 
-            "Metadata":{"Song Title":None,
-                        "Song File Name":None,
-                        "Movie File Name":None,
-                        "Background File Name":None,
-                        "Cover File Name":None,
-                        "Logo File Name":None},
+            "MetaData":{"Song Title": None,
+                        "Artist": None,
+                        "Album": None,
+                        "Lyricist": None,
+                        "Arranger": None,
+                        "Track Number": None,
+                        "Disk Number": None,
+                        "Song File Name":  None,
+                        "Movie File Name": None,
+                        "Background File Name": None,
+                        "Cover File Name": None,
+                        "Logo File Name": None},
 
             "Chart":{},
 
@@ -53,7 +59,7 @@ class _CsfmReader:
         address = struct.unpack("<q",address)[0]
         return self.string_address[address]
 
-    def readcsfm(self, _path : Path) -> dict:
+    def readcsfm(self, _path : Path) -> ComfyFile:
         logger.info(f"正在读取 {_path}")
         self.parent_path = _path.parent
         with open(_path, "rb") as f:
@@ -78,11 +84,12 @@ class _CsfmReader:
         file.seek(10) # 跳到后面读剩下的值
         self.data_dict["Header"]["PointerSize"] = struct.unpack("<h4x", file.read(6))[0]
         self.data_dict["Header"]["CreationTime"] = struct.unpack("<q", file.read(8))[0]
-        self.data_dict["Header"]["CharacterEncoding"] = ReadCstring.ReadCstringFile2(file, file.tell())
+        self.data_dict["Header"]["CharacterEncoding"] = ReadCstring.ReadStrFromFile(file, file.tell())
         pass
 
     def creator_info_reader(self, file: BinaryIO) -> None:
         offset = self.data_dict["Header"]["PointerSize"]
+
         file.seek(offset)
 
         self.data_dict["CreatorInfo"]["PointerSize"] = struct.unpack("<q", file.read(8))[0]
@@ -91,21 +98,26 @@ class _CsfmReader:
         for index in range(0, int(self.data_dict["CreatorInfo"]["PointerSize"]/8 - 1)):
             file.seek(offset) # 跳转到指定位置
             if index >= len(keys):
-                logger.info(f"未知来源数据：{ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0])}")
+                logger.info(f"未知来源数据：{ReadCstring.ReadStrFromFile(file, struct.unpack("<q", file.read(8))[0], self.data_dict["Header"]["CharacterEncoding"] )}")
             elif keys[index] == "PointerSize":
                 pass
             else:
-                self.data_dict["CreatorInfo"][keys[index]] = ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0])
+                self.data_dict["CreatorInfo"][keys[index]] = ReadCstring.ReadStrFromFile(file, struct.unpack("<q", file.read(8))[0], self.data_dict["Header"]["CharacterEncoding"] )
 
             offset += 8
 
     def __getstring_dict(self,file: BinaryIO, data_offset: int):
+
         file.seek(data_offset)
+
         offset = struct.unpack("<q",file.read(8))[0]
-        self.string_address = ReadCstring.ReadCstringFile(file,offset)
+        if offset == None:
+            raise BufferError("数据不完整")
+
+        self.string_address = ReadCstring.ReadDictFromFile(file, offset, self.data_dict["Header"]["CharacterEncoding"])
     
     def data_reader(self, file: BinaryIO) -> None:
-        file.seek(self.data_dict["Header"]["PointerSize"]+self.data_dict["CreatorInfo"]["PointerSize"])
+        file.seek(self.data_dict["Header"]["PointerSize"] + self.data_dict["CreatorInfo"]["PointerSize"])
         data_len = struct.unpack("<q",file.read(8))[0]
         data_offset = struct.unpack("<q",file.read(8))[0]
         self.__getstring_dict(file,data_offset)
@@ -119,7 +131,7 @@ class _CsfmReader:
                 case "Chart":
                     self.chart_reader(file, address)
                 case "Debug":
-                    self.data_dict["Debug"] = ReadCstring.ReadCstringFile2(file, address)
+                    self.data_dict["Debug"] = ReadCstring.ReadStrFromFile(file, address, self.data_dict["Header"]["CharacterEncoding"] )
                 case unknow_info:
                     logger.info(f"未知的数据，将会被舍弃 {unknow_info}")
             data_offset += 32
@@ -133,33 +145,31 @@ class _CsfmReader:
             value = self.__getstring(value_address)
             match key:
                 case "Song Title":
-                    self.data_dict["Metadata"][key] = value
+                    self.data_dict["MetaData"][key] = value
                 case "Artist":
-                    self.data_dict["Metadata"][key] = value
+                    self.data_dict["MetaData"][key] = value
                 case "Album":
-                    self.data_dict["Metadata"][key] = value
+                    self.data_dict["MetaData"][key] = value
                 case "Lyricist":
-                    self.data_dict["Metadata"][key] = value
+                    self.data_dict["MetaData"][key] = value
                 case "Arranger":
-                    self.data_dict["Metadata"][key] = value
-                case "Album":
-                    self.data_dict["Metadata"][key] = value
+                    self.data_dict["MetaData"][key] = value
                 case "Song File Name":
-                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Movie File Name":
-                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Background File Name":
-                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Cover File Name":
-                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Logo File Name":
-                    self.data_dict["Metadata"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
+                    self.data_dict["MetaData"][key] = Path(value) if Path(value).is_absolute() else self.parent_path.joinpath(value)
                 case "Track Number":
-                    self.data_dict["Metadata"][key] = value
+                    self.data_dict["MetaData"][key] = value
                 case "Disk Number":
-                    self.data_dict["Metadata"][key] = value
+                    self.data_dict["MetaData"][key] = value
                 case __:
-                    logger.info(f"未知Metadata数据：{key}")
+                    logger.info(f"未知MetaData数据：{key}")
 
     def chart_reader(self, file: BinaryIO, offset: int) -> None:
         address_dict = self.__get_data_address(file, offset)
@@ -219,7 +229,7 @@ class _CsfmReader:
         
         for i in range(button_type_lenght):
             file.seek(button_type_address + i * 8)
-            scale_dict["ButtonTypeNames"].append(ReadCstring.ReadCstringFile2(file, struct.unpack("<q", file.read(8))[0]))
+            scale_dict["ButtonTypeNames"].append(ReadCstring.ReadStrFromFile(file, struct.unpack("<q", file.read(8))[0], self.data_dict["Header"]["CharacterEncoding"]))
 
     def __get_target(self, file: BinaryIO, offset: int) -> None:
         '''
@@ -355,6 +365,5 @@ class _CsfmReader:
         return list(zip(unpack_data[::2],unpack_data[1::2]))
     
 
-def read_csfm(_file_path: Path) -> dict:
-
+def read_csfm(_file_path: Path) -> ComfyFile:
     return _CsfmReader().readcsfm(_file_path)

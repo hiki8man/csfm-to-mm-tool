@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field, InitVar
 import struct
 from pathlib import Path
-from enum import IntEnum, auto
+from enum import IntEnum
 import FarcCreater
+from typing import TypedDict, Optional, Any
 
 import logging
 
@@ -18,7 +19,53 @@ pv_{pv_id:03d}.difficulty.{diff_str}.{number}.script_file_name=rom/script/pv_{pv
 pv_{pv_id:03d}.difficulty.{diff_str}.{number}.script_format=0x14050921
 pv_{pv_id:03d}.difficulty.{diff_str}.{number}.version=1'''
 
+class ComfyFileHeader(TypedDict):
+    PointerSize: int
+    CharacterEncoding: str
+    
+    Magic:        Optional[str]
+    Version:      Optional[str]
+    Endianness:   Optional[str]
+    CreationTime: Optional[int]
+    
 
+class ComfyCreatorInfo(TypedDict):
+    PointerSize: int
+    
+    Name:         Optional[str]
+    Platform:     Optional[str]
+    Architecture: Optional[str]
+    Author:       Optional[str]
+    CommitHash:   Optional[str]
+    CommitTime:   Optional[str]
+    CommitNumber: Optional[str]
+    Branch:       Optional[str]
+    CompileTime:  Optional[str]
+    BuildConfig:  Optional[str]
+
+ComfyMetaData = TypedDict(
+    "ComfyMetaData",{
+        "Song Title": Optional[str],
+        "Artist": Optional[str],
+        "Album":Optional[str],
+        "Lyricist":Optional[str],
+        "Arranger":Optional[str],
+        "Track Number":Optional[str],
+        "Disk Number":Optional[str],
+        "Song File Name":  Optional[Path],
+        "Movie File Name": Optional[Path],
+        "Background File Name": Optional[Path],
+        "Cover File Name": Optional[Path],
+        "Logo File Name":  Optional[Path]
+        }
+    )
+
+class ComfyFile(TypedDict):
+    Header: ComfyFileHeader
+    CreatorInfo: ComfyCreatorInfo
+    MetaData: ComfyMetaData
+    Chart: dict[str, Any]
+    Debug: str
 
 class DSCCommandID(IntEnum):
     TIME = 1
@@ -34,12 +81,12 @@ class DSCCommandID(IntEnum):
 
 class ComfyNoteID(IntEnum):
     TRIANGLE = 0
-    SQUARE = auto()
-    CROSS = auto()
-    CIRCLE = auto()
-    SLIDE_L = auto()
-    SLIDE_R = auto()
-    STAR = auto()
+    SQUARE = 1
+    CROSS = 2
+    CIRCLE = 3
+    SLIDE_L = 4
+    SLIDE_R = 5
+    STAR = 6
 
 class DSCNoteID(IntEnum):
     # Diva FT
@@ -91,7 +138,7 @@ class DSCNoteID(IntEnum):
     STAR = 37
     STAR_LONG = 38
     STAR_W = 39
-    CHANCE_STAR = 40
+    CHANGE_STAR = 40
     LINK_STAR_START = 41
     LINK_STAR_END = 42
     STAR_RUSH = 43
@@ -100,22 +147,21 @@ class DSCNoteID(IntEnum):
     def get_normal_note_id(comfy_id:int) -> int:
         match comfy_id:
             case ComfyNoteID.TRIANGLE: return DSCNoteID.TRIANGLE
-            case ComfyNoteID.SQUARE:   return DSCNoteID.SQUARE
-            case ComfyNoteID.CROSS:    return DSCNoteID.CROSS
-            case ComfyNoteID.CIRCLE:   return DSCNoteID.CIRCLE
-            case ComfyNoteID.SLIDE_L:  return DSCNoteID.SLIDE_L
-            case ComfyNoteID.SLIDE_R:  return DSCNoteID.SLIDE_R
-            case ComfyNoteID.STAR:     return DSCNoteID.STAR
+            case ComfyNoteID.SQUARE: return DSCNoteID.SQUARE
+            case ComfyNoteID.CROSS: return DSCNoteID.CROSS
+            case ComfyNoteID.CIRCLE: return DSCNoteID.CIRCLE
+            case ComfyNoteID.SLIDE_L: return DSCNoteID.SLIDE_L
+            case ComfyNoteID.SLIDE_R: return DSCNoteID.SLIDE_R
 
-        raise ValueError(f"不支持的NormalNote类型 {comfy_id}")
+        raise ValueError(f"不支持的Note类型 {comfy_id}")
     
     @staticmethod
     def get_hold_note_id(comfy_id:int) -> int:
         match comfy_id:
             case ComfyNoteID.TRIANGLE: return DSCNoteID.TRIANGLE_HOLD
-            case ComfyNoteID.SQUARE:   return DSCNoteID.SQUARE_HOLD
-            case ComfyNoteID.CROSS:    return DSCNoteID.CROSS_HOLD
-            case ComfyNoteID.CIRCLE:   return DSCNoteID.CIRCLE_HOLD
+            case ComfyNoteID.SQUARE: return DSCNoteID.SQUARE_HOLD
+            case ComfyNoteID.CROSS: return DSCNoteID.CROSS_HOLD
+            case ComfyNoteID.CIRCLE: return DSCNoteID.CIRCLE_HOLD
         
         raise ValueError(f"不支持的HoldNote类型 {comfy_id}")
     
@@ -131,12 +177,11 @@ class DSCNoteID(IntEnum):
     def get_chance_note_id(comfy_id:int) -> int:
         match comfy_id:
             case ComfyNoteID.TRIANGLE: return DSCNoteID.CHANCE_TRIANGLE
-            case ComfyNoteID.SQUARE:   return DSCNoteID.CHANCE_SQUARE
-            case ComfyNoteID.CROSS:    return DSCNoteID.CHANCE_CROSS
-            case ComfyNoteID.CIRCLE:   return DSCNoteID.CHANCE_CIRCLE
-            case ComfyNoteID.SLIDE_L:  return DSCNoteID.CHANCE_SLIDE_L
-            case ComfyNoteID.SLIDE_R:  return DSCNoteID.CHANCE_SLIDE_R
-            case ComfyNoteID.STAR:     return DSCNoteID.CHANCE_STAR
+            case ComfyNoteID.SQUARE: return DSCNoteID.CHANCE_SQUARE
+            case ComfyNoteID.CROSS: return DSCNoteID.CHANCE_CROSS
+            case ComfyNoteID.CIRCLE: return DSCNoteID.CHANCE_CIRCLE
+            case ComfyNoteID.SLIDE_L: return DSCNoteID.CHANCE_SLIDE_L
+            case ComfyNoteID.SLIDE_R: return DSCNoteID.CHANCE_SLIDE_R
         
         raise ValueError(f"不支持的ChanceNote类型 {comfy_id}")
 
@@ -176,16 +221,16 @@ class DSCNoteID(IntEnum):
 
 class Difficulty(IntEnum):
     EASY    = 0
-    NORMAL  = auto()
-    HARD    = auto()
-    EXTREME = auto()
-    ENCORE  = auto()
+    NORMAL  = 1
+    HARD    = 2
+    EXTREME = 3
+    ENCORE  = 4
 
-    EX_EASY    = auto()
-    EX_NORMAL  = auto()
-    EX_HARD    = auto()
-    EX_EXTREME = auto()
-    EX_ENCORE  = auto()
+    EX_EASY    = 5
+    EX_NORMAL  = 6
+    EX_HARD    = 7
+    EX_EXTREME = 8
+    EX_ENCORE  = 9
 
 @dataclass
 class ChartInfo:
@@ -199,7 +244,7 @@ class ChartInfo:
     extreme: dict = field(default_factory=dict)
     ex_extreme: dict = field(default_factory=dict)
 
-    def update_chart(self, info:dict) -> None:
+    def update_chart(self, info) -> None:
         # 将IsEx转换为Difficulty枚举
         diff_type:int = info["Chart"]["Difficulty"]["Type"]
         if info["Chart"]["Difficulty"]["IsEx"]:
@@ -218,24 +263,24 @@ class ChartInfo:
         else:
             raise ValueError(f"未知的难度数: {diff_type}")
 
-    def update_meta(self, info:dict[str, dict]) -> None:
+    def update_meta(self, info:ComfyFile) -> None:
         if info:
             self.meta_data = {
                 "bpm":       int(info["Chart"]["Tempo Map"]["Tempo"][0]),
                 "sabi_start":info["Chart"]["Time"]["Song Preview Start"],
                 "sabi_play": info["Chart"]["Time"]["Song Preview Duration"],
                 
-                "song_path": info["Metadata"].get("Song File Name"),
-                "movie_path":info["Metadata"].get("Movie File Name"),
-                "song_title":info["Metadata"].get("Song Title", "名無し"),
+                "song_path": info["MetaData"].get("Song File Name"),
+                "movie_path":info["MetaData"].get("Movie File Name"),
+                "song_title":info["MetaData"].get("Song Title", "名無し"),
                 
-                "arranger":info["Metadata"].get("Arranger", "名無し"),
-                "lyrics":info["Metadata"].get("Lyricist", "名無し"),
-                "music":info["Metadata"].get("Artist", "名無し"),
+                "arranger":info["MetaData"].get("Arranger", "名無し"),
+                "lyrics":info["MetaData"].get("Lyricist", "名無し"),
+                "music":info["MetaData"].get("Artist", "名無し"),
                 
-                "bg_path":  info["Metadata"].get("Background File Name"),
-                "jk_path":  info["Metadata"].get("Cover File Name"),
-                "logo_path":info["Metadata"].get("Logo File Name")
+                "bg_path":  info["MetaData"].get("Background File Name"),
+                "jk_path":  info["MetaData"].get("Cover File Name"),
+                "logo_path":info["MetaData"].get("Logo File Name")
                 }
         else:
             ValueError("元数据错误")
@@ -379,7 +424,6 @@ class ChartInfo:
         pv_db_list.append(f"pv_{self.pv_id:03d}.songinfo_en.lyrics=lyrics_name")
         pv_db_list.append(f"pv_{self.pv_id:03d}.songinfo_en.music=music_name")
         pv_db_list.append(f"pv_{self.pv_id:03d}.sudden_timing=0.6")
-        
         # 添加背景图
         pv_db_list.append(f"pv_{self.pv_id:03d}.field.01.spr_set_back=SPR_SEL_PV{self.pv_id:03d}")
         pv_db_list.append(f"pv_{self.pv_id:03d}.field.length=1")
@@ -410,7 +454,21 @@ class BPM:
     @property
     def tick_time(self) -> float: # 时间精度为0.01ms，需要给小数
         return 60 * 1000 * 100 / self.tempo / 48
+
+@dataclass
+class DSCNoteTime:
+    '''
+    Diva里飞入时间为1ms
+    但指令时间为0.01ms为1单位
+    为了便于后续处理，note_time依旧遵循指令时间单位
+    '''
     
+    flying_time:int
+    command_time:int
+    
+    @property
+    def note_time(self) -> int:
+        return int(self.command_time + self.flying_time*100)
     
 @dataclass
 class Note:
@@ -427,8 +485,12 @@ class Note:
     distance : float
 
     def __post_init__(self):
+        '''
+        如果Note没进行过修改，根据comfy的处理方式提供默认参数   
+        [NOTE] 当前的实现逻辑没有考虑多押，以后也许需要修改
+        '''
         if self.isproperties == False:
-            self.position = (((self.tick + 192) % 384) * 4 + 192,768)
+            self.position = (((self.tick + 192) % 384) * 4 + 192, 768) 
             self.angle = 0.00
             self.frequency = -2
             self.amplitude = 500
@@ -471,6 +533,17 @@ class Note:
         else:
             return DSCNoteID.get_normal_note_id(comfy_id=self.type)
 
+    def __dsc_note_id(self) -> int:
+        '''
+        将id转换为dsc的id
+        '''
+        if self.type == 1:
+            return 3
+        elif self.type == 3:
+            return 1
+        else:
+            return self.type
+
     def __convert_250(self,value:float) -> int:
         return int(value * 250)
     
@@ -487,7 +560,7 @@ class NoteF2X(Note):
     
     def __post_init__(self):
         raise NotImplementedError("Not implemented")
-    
+
     def __get_dsc_notetype(self) -> int:
         if self.ishold:
             return DSCNoteID.get_hold_note_id(comfy_id=self.type)
@@ -496,7 +569,7 @@ class NoteF2X(Note):
         elif self.ischain:
             return DSCNoteID.get_chain_note_id(comfy_id=self.type)
         elif self.islong:
-            raise NotImplementedError("需要处理长按Note")
+            raise NotImplementedError("需要单独处理长按Note")
             return DSCNoteID.get_long_note_id(comfy_id=self.type)
         elif self.isdouble:
             return DSCNoteID.get_double_note_id(comfy_id=self.type)

@@ -35,7 +35,7 @@ def ReadCstring(data: bytes) -> bytes:
     CheckData(data)
     return data.split(b"\x00",1)[0]
 
-def ReadCstringDict(data: bytes, startoffset: int = 0) -> dict[int,str]:
+def ReadCstringDict(data: bytes, encode:str ,startoffset: int = 0) -> dict[int,str]:
     CstringDict = {}
     data = data[startoffset:]
     offset = 0
@@ -52,20 +52,20 @@ def ReadCstringDict(data: bytes, startoffset: int = 0) -> dict[int,str]:
         
         address = startoffset + offset
         logger.debug(f"{address}地址对应的字符串{bytestring}")
-        CstringDict[address] = bytestring.decode("UTF-8")
+        CstringDict[address] = bytestring.decode(encode)
         offset += len(bytestring) + 1
 
     return CstringDict
 
-def ReadCstringFile(file: BinaryIO, offset: int = 0):
+def ReadDictFromFile(file: BinaryIO, offset:int = 0, encode:str = "UTF-8"):
     file.seek(offset)
-    CstringDict = ReadCstringDict(file.read())
+    CstringDict = ReadCstringDict(file.read(), encode)
     if offset != 0:
         return {key + offset: value for key, value in CstringDict.items()}
     else:
         return CstringDict
 
-def ReadCstringFile2(file: BinaryIO, offset:int) -> str:
+def ReadStrFromFile(file: BinaryIO, offset:int = 0, encode:str = "UTF-8") -> str:
 
     file.seek(offset)
     string = b""
@@ -76,5 +76,5 @@ def ReadCstringFile2(file: BinaryIO, offset:int) -> str:
         else:
             string += string_char
 
-    return string.decode()
+    return string.decode(encode)
         

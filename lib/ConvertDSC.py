@@ -1,5 +1,5 @@
 
-from .CsfmDataClass import BPM,Note,DSCCommandID,Difficulty
+from .CsfmDataClass import BPM,Note,DSCCommandID,Difficulty,DSCNoteTime
 from pathlib import Path
 from collections import defaultdict
 from pprint import pprint
@@ -78,14 +78,17 @@ class TickManager:
     def __init__(self, _manager:BPMManager) -> None:
         self.bpm_manager:BPMManager = _manager
         self.target_flying_time:int = -1
-        
-    def tick_to_time(self, tick:int, offset, count) -> tuple[dict[int,bytes], int]:
+    
+    def tick_to_time(self, tick:int, chart_offset:int, note_count:int) -> DSCNoteTime:
         """
         计算给定 tick 对应的时间与飞入时间。
         规则：
         - 每个 BPM 点在其所在 tick 处开始一段最长 192 tick 的线性变速（飞入时间线性插值）；
         - 如果在 192 tick 内又出现新的 BPM，则在新 BPM 处
           以“当前瞬时飞入时间”为起点，重新开始一段新的 192 tick 线性变速，保证平滑连续。
+        返回值按数据原始标准
+        flying time 为1ms
+        command time 为0.01ms
         """
         if not self.bpm_manager.data_list:
             raise ValueError("没有读取到BPM表")
@@ -135,29 +138,21 @@ class TickManager:
             last_change_time += start_bpm.tick_time * (end_bpm.tick - start_bpm.tick)
         
         after_change_tick = tick - cur_bpm.tick
-        if after_change_tick > 192:
-            """
-            太好了是无BPM变速我们有救了
-            """
+        if after_change_tick > 192: #太好了是无BPM变速我们有救了
             flying_time = cur_bpm.flying_time
-        elif after_change_tick == 0:
-            '''
-            变速过程中插入新的
-            '''
+            
+        elif after_change_tick == 0: #变速过程中插入新的
             flying_time = pre_bpm.flying_time
-        elif pre_bpm.tempo == -1:
-            '''
-            禁区放置Note，根据Comfy的行为使用0.1ms为单位处理Notes
-            '''
-            flying_time = cur_bpm.flying_time * (after_change_tick / 192) - count * 0.1
-        else:
-            """
-            变速给我去死啊啊啊啊啊啊啊
-            """
-            flying_time = pre_bpm.flying_time + (cur_bpm.flying_time - pre_bpm.flying_time) * (after_change_tick / 192)
+            
+        elif pre_bpm.tempo == -1: #禁区放置Note，根据Comfy的行为使用0.1ms为单位处理Notes
+            flying_time = cur_bpm.flying_time * (after_change_tick / 192) - note_count * 0.1
+            
+        else: #变速给我去死啊啊啊啊啊啊啊
+            change_flying_time = (cur_bpm.flying_time - pre_bpm.flying_time) * (after_change_tick / 192)
+            flying_time = pre_bpm.flying_time + change_flying_time
 
-        time = int(cur_bpm.tick_time * after_change_tick + last_change_time - (flying_time * 100)) + offset
-        return self.get_dsc_data(int(flying_time), time) , time
+        command_time = int(cur_bpm.tick_time * after_change_tick + last_change_time - (flying_time * 100)) + chart_offset
+        return DSCNoteTime(int(flying_time), command_time)
     
     def get_dsc_data(self, flying_time:int, time:int) -> dict[int,bytes]:
         dsc_dict = defaultdict(bytes)
@@ -187,8 +182,8 @@ class DSCManager:
         self.__init__() # 初始化
         chart_data_dict = csfm_data["Chart"]
         # 检查文件是否存在，不存在的文件将offset设置为0
-        self.have_movie = csfm_data["Metadata"]["Movie File Name"] and csfm_data["Metadata"]["Movie File Name"].exists()
-        self.have_song = csfm_data["Metadata"]["Song File Name"] and csfm_data["Metadata"]["Song File Name"].exists()
+        self.have_movie = csfm_data["MetaData"]["Movie File Name"] and csfm_data["MetaData"]["Movie File Name"].exists()
+        self.have_song = csfm_data["MetaData"]["Song File Name"] and csfm_data["MetaData"]["Song File Name"].exists()
 
         self.bpm_manager.read_bpm(chart_data_dict["Tempo Map"])
         self.note_mananger.read_note(chart_data_dict["Targets"])
@@ -230,16 +225,20 @@ class DSCManager:
     
     def get_note_dict(self) -> dict[int,bytes]:
         note_dict = defaultdict(bytes)
-        count = 0 # 用于处理在禁区放置Note时计算时间
+        note_count = 0 # 用于处理在禁区放置Note时计算时间
         for note_tuple in self.note_mananger.get_note():
-            
             tick = note_tuple[0].tick
-            chart_offset_dsc= int(self.chart_offset * 1000 * 100) 
-            data_dict, time = self.tick_manager.tick_to_time(tick, chart_offset_dsc, count)
+            chart_offset_dsc= int(self.chart_offset * 1000 * 100)
+            
+            note_time = self.tick_manager.tick_to_time(tick, chart_offset_dsc, note_count)
+            data_dict:dict[int,bytes] = self.tick_manager.get_dsc_data(note_time.flying_time, note_time.command_time)
+
             for note in note_tuple:
-                data_dict[time] += note.dsc_data
+                data_dict[note_time.command_time] += note.dsc_data
             note_dict.update(data_dict)
-            count += 1
+            
+            note_count += 1
+            
         return note_dict
 
     def get_dsc_dict(self) -> dict[int,bytes]:
