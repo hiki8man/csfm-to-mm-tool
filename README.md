@@ -1,6 +1,6 @@
 # 这个项目仍在开发中
 
-目前只实现了csfm转dsc，还需要实现其他东西才能正常运行
+~~目前只实现了csfm转dsc，还需要实现其他东西才能正常运行~~ 编写了一些临时代码，现在可以生成无视频的MDO了
 
 # 特别感谢：  
 - [Vixen256](https://github.com/vixen256): [KKdLib-sys](https://github.com/vixen256/KKdLib-sys)
