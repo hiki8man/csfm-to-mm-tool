@@ -104,7 +104,6 @@ class ComfyFile:
             "Logo File Name": None
             }
         )
-        
 
     Chart: dict[str, Any] = field(default_factory=lambda: {})
     Debug: str = "Reserved"
@@ -280,11 +279,11 @@ class ChartInfo:
 
     meta_data: dict = field(default_factory=dict)
 
-    easy: ComfyFile = field(default_factory=ComfyFile)
-    normal: ComfyFile = field(default_factory=ComfyFile)
-    hard: ComfyFile = field(default_factory=ComfyFile)
-    extreme: ComfyFile = field(default_factory=ComfyFile)
-    ex_extreme: ComfyFile = field(default_factory=ComfyFile)
+    easy: Optional[ComfyFile] = None
+    normal: Optional[ComfyFile] = None
+    hard: Optional[ComfyFile] = None
+    extreme: Optional[ComfyFile] = None
+    ex_extreme: Optional[ComfyFile] = None
 
     def update_chart(self, info:ComfyFile) -> None:
         # 将IsEx转换为Difficulty枚举
