@@ -339,10 +339,11 @@ class ChartInfo:
         
         return False
     
-    def export_chart(self) -> list[str]:
+    def export_chart(self, mod_folder:Path) -> list[str]:
         # [TODO] 需要把生成文件的逻辑抽离出来
         from lib.ConvertDSC import DSCManager
-        
+        sprite_path: Path = mod_folder.joinpath("rom", "2d")
+        chart_path: Path = mod_folder.joinpath("rom", "script")
         # 导出2D图
         logger.info("创建2D图")
         spr_dict = {"bg_path":self.meta_data["bg_path"],
@@ -353,7 +354,7 @@ class ChartInfo:
         spr_dict["jk_path"] = spr_dict["jk_path"] if spr_dict["jk_path"] and spr_dict["jk_path"].exists() else Path("default","SONG_JK_DUMMY.png").absolute()
         spr_dict["logo_path"] = spr_dict["logo_path"] if spr_dict["logo_path"] and spr_dict["logo_path"].exists() else None
         
-        FarcCreater.create_spr_sel_farc(self.pv_id,spr_dict,Path("output","rom","2d"))
+        FarcCreater.create_spr_sel_farc(self.pv_id,spr_dict, sprite_path)
         # 初始化
         logger.info("生成db并创建谱面")
         pv_db_list:list[str] = []
@@ -369,7 +370,7 @@ class ChartInfo:
         # 添加easy
         if self.easy:
             dsc_managet.read_csfm_data(self.easy)
-            dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
+            dsc_managet.creat_dsc_file(self.pv_id, chart_path)
 
             check_slide = self.check_slide(self.easy)
             pv_db_list.extend(
@@ -391,7 +392,7 @@ class ChartInfo:
         # 添加normal
         if self.normal:
             dsc_managet.read_csfm_data(self.normal)
-            dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
+            dsc_managet.creat_dsc_file(self.pv_id, chart_path)
 
             check_slide = self.check_slide(self.normal)
             pv_db_list.extend(
@@ -413,7 +414,7 @@ class ChartInfo:
         # 添加hard
         if self.hard:
             dsc_managet.read_csfm_data(self.hard)
-            dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
+            dsc_managet.creat_dsc_file(self.pv_id, chart_path)
 
             check_slide = self.check_slide(self.hard)
             pv_db_list.extend(
@@ -436,7 +437,7 @@ class ChartInfo:
         extreme_count = 0
         if self.extreme:
             dsc_managet.read_csfm_data(self.extreme)
-            dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
+            dsc_managet.creat_dsc_file(self.pv_id, chart_path)
 
             check_slide = self.check_slide(self.extreme)
             pv_db_list.extend(
@@ -454,7 +455,7 @@ class ChartInfo:
             extreme_count += 1
         if self.ex_extreme:
             dsc_managet.read_csfm_data(self.ex_extreme)
-            dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
+            dsc_managet.creat_dsc_file(self.pv_id, chart_path)
 
             check_slide = self.check_slide(self.ex_extreme)
             pv_db_list.extend(

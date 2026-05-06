@@ -12,6 +12,7 @@ import shutil
 import auto_creat_mod_spr_db as db_tool
 from ffmpeg_normalize import FFmpegNormalize
 
+
 def init_logging():
     logging.basicConfig(
         format='{asctime} {levelname} [{name}]: {message}',
@@ -28,12 +29,21 @@ def get_csfm_file() -> Generator[Path, None, None]:
 
 def create_output_folder() -> Path:
     from datetime import datetime
-    folder_name: str = datetime.now().strftime(r"%Y%m%d_%H%M%S")
+    folder_name: str = f"Song Pack_{datetime.now().strftime(r"%Y%m%d_%H%M%S")}"
     base_path: Path = Path("output", folder_name)
 
     for dir in [r"rom//2d", r"rom//movie", r"rom//script", r"rom//sound//song"]:
         base_path.joinpath(dir).mkdir(parents=True, exist_ok=True)
-
+    with open(base_path.joinpath("config.toml"), encoding="utf-8", mode="w+")as f:
+        f.write(
+            'enabled = true\n'
+            'include = ["."]\n'
+            '\n'
+            'name = "Template Song Pack"\n'
+            'description = "Create with csfm_to_mm_tool"\n'
+            'version = "1.0"\n'
+            'date = "06.05.2026"\n'
+            'author = "hiki8man"\n')
     return base_path
 
 chart_info_dict:dict[int,ChartInfo] = {}
@@ -46,8 +56,7 @@ if __name__ == "__main__":
     BASE_PATH = create_output_folder()
 
     normalizer = FFmpegNormalize(
-        target_level=-14,
-        loudness_range_target=11,
+        target_level=-10,
         true_peak=-0.5,
         audio_codec='libvorbis',
         sample_rate=44100,
@@ -74,7 +83,7 @@ if __name__ == "__main__":
         normalizer.add_media_file(str(src_song), str(dst_song))
         normalizer.run_normalization()
         
-        pv_db_list += chart_info.export_chart()
+        pv_db_list += chart_info.export_chart(BASE_PATH)
     
     pv_db_list.sort()
     with open(BASE_PATH.joinpath("rom", "mod_pv_db.txt"),"w",encoding="utf-8") as f:
