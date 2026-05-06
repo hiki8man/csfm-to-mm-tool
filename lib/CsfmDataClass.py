@@ -9,15 +9,17 @@ import logging
 
 logger = logging.getLogger('CsfmDataClass')
 
-DIFF_STR = '''pv_{pv_id:03d}.difficulty.{diff_str}.{number}.attribute.extra={extra}
-pv_{pv_id:03d}.difficulty.{diff_str}.{number}.attribute.original={original}
-pv_{pv_id:03d}.difficulty.{diff_str}.{number}.attribute.slide={is_slide}
-pv_{pv_id:03d}.difficulty.{diff_str}.{number}.edition={extra}
-pv_{pv_id:03d}.difficulty.{diff_str}.{number}.level=PV_LV_{diff_rate}
-pv_{pv_id:03d}.difficulty.{diff_str}.{number}.level_sort_index=50
-pv_{pv_id:03d}.difficulty.{diff_str}.{number}.script_file_name=rom/script/pv_{pv_id:03d}_{diff_str}{ex_tag}.dsc
-pv_{pv_id:03d}.difficulty.{diff_str}.{number}.script_format=0x14050921
-pv_{pv_id:03d}.difficulty.{diff_str}.{number}.version=1'''
+DIFF_STR = (
+    'pv_{pv_id:03d}.difficulty.{diff_str}.{number}.attribute.extra={extra}\n'
+    'pv_{pv_id:03d}.difficulty.{diff_str}.{number}.attribute.original={original}\n'
+    'pv_{pv_id:03d}.difficulty.{diff_str}.{number}.attribute.slide={is_slide}\n'
+    'pv_{pv_id:03d}.difficulty.{diff_str}.{number}.edition={extra}\n'
+    'pv_{pv_id:03d}.difficulty.{diff_str}.{number}.level=PV_LV_{diff_rate}\n'
+    'pv_{pv_id:03d}.difficulty.{diff_str}.{number}.level_sort_index=50\n'
+    'pv_{pv_id:03d}.difficulty.{diff_str}.{number}.script_file_name=rom/script/pv_{pv_id:03d}_{diff_str}{ex_tag}.dsc\n'
+    'pv_{pv_id:03d}.difficulty.{diff_str}.{number}.script_format=0x14050921\n'
+    'pv_{pv_id:03d}.difficulty.{diff_str}.{number}.version=1'
+)
 
 class ComfyFileHeader(TypedDict):
     PointerSize: int
@@ -47,16 +49,16 @@ ComfyMetaData = TypedDict(
     "ComfyMetaData",{
         "Song Title": Optional[str],
         "Artist": Optional[str],
-        "Album":Optional[str],
-        "Lyricist":Optional[str],
-        "Arranger":Optional[str],
-        "Track Number":Optional[str],
-        "Disk Number":Optional[str],
-        "Song File Name":  Optional[Path],
+        "Album": Optional[str],
+        "Lyricist": Optional[str],
+        "Arranger": Optional[str],
+        "Track Number": Optional[str],
+        "Disk Number": Optional[str],
+        "Song File Name": Optional[Path],
         "Movie File Name": Optional[Path],
         "Background File Name": Optional[Path],
         "Cover File Name": Optional[Path],
-        "Logo File Name":  Optional[Path]
+        "Logo File Name": Optional[Path]
         }
     )
 
@@ -97,7 +99,7 @@ class ComfyFile:
             "Arranger": None,
             "Track Number": None,
             "Disk Number": None,
-            "Song File Name":  None,
+            "Song File Name": None,
             "Movie File Name": None,
             "Background File Name": None,
             "Cover File Name": None,
@@ -315,9 +317,9 @@ class ChartInfo:
                 "movie_path":info.MetaData.get("Movie File Name"),
                 "song_title":info.MetaData.get("Song Title", "名無し"),
                 
-                "arranger":info.MetaData.get("Arranger", "名無し"),
-                "lyrics":info.MetaData.get("Lyricist", "名無し"),
-                "music":info.MetaData.get("Artist", "名無し"),
+                "arranger": info.MetaData.get("Arranger", "名無し"),
+                "lyrics":   info.MetaData.get("Lyricist", "名無し"),
+                "music":    info.MetaData.get("Artist", "名無し"),
                 
                 "bg_path":  info.MetaData.get("Background File Name"),
                 "jk_path":  info.MetaData.get("Cover File Name"),
@@ -338,13 +340,14 @@ class ChartInfo:
         return False
     
     def export_chart(self) -> list[str]:
+        # [TODO] 需要把生成文件的逻辑抽离出来
         from lib.ConvertDSC import DSCManager
         
         # 导出2D图
         logger.info("创建2D图")
         spr_dict = {"bg_path":self.meta_data["bg_path"],
-                       "jk_path":self.meta_data["jk_path"],
-                       "logo_path":self.meta_data["logo_path"]}
+                    "jk_path":self.meta_data["jk_path"],
+                    "logo_path":self.meta_data["logo_path"]}
         
         spr_dict["bg_path"] = spr_dict["bg_path"] if spr_dict["bg_path"] and spr_dict["bg_path"].exists() else Path("default","SONG_BG_DUMMY.png").absolute()
         spr_dict["jk_path"] = spr_dict["jk_path"] if spr_dict["jk_path"] and spr_dict["jk_path"].exists() else Path("default","SONG_JK_DUMMY.png").absolute()
@@ -369,9 +372,18 @@ class ChartInfo:
             dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
 
             check_slide = self.check_slide(self.easy)
-            pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "easy", 
-                                              number = 0, ex_tag = "", diff_rate = self.easy.Chart["Difficulty"]["Level"],
-                                              extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
+            pv_db_list.extend(
+                DIFF_STR.format(
+                    pv_id = self.pv_id, 
+                    diff_str = "easy", 
+                    number = 0, 
+                    ex_tag = "", 
+                    diff_rate = self.easy.Chart["Difficulty"]["Level"],
+                    extra = 0, 
+                    original = 1, 
+                    is_slide = int(check_slide)
+                ).splitlines()
+            )
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.easy.length=1")
         else:
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.easy.length=0")
@@ -382,9 +394,18 @@ class ChartInfo:
             dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
 
             check_slide = self.check_slide(self.normal)
-            pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "normal", 
-                                              number = 0, ex_tag = "", diff_rate = self.normal.Chart["Difficulty"]["Level"],
-                                              extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
+            pv_db_list.extend(
+                DIFF_STR.format(
+                    pv_id = self.pv_id, 
+                    diff_str = "normal", 
+                    number = 0, 
+                    ex_tag = "", 
+                    diff_rate = self.normal.Chart["Difficulty"]["Level"],
+                    extra = 0, 
+                    original = 1, 
+                    is_slide = int(check_slide)
+                ).splitlines()
+            )
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.normal.length=1")
         else:
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.normal.length=0")
@@ -395,9 +416,18 @@ class ChartInfo:
             dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
 
             check_slide = self.check_slide(self.hard)
-            pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "hard", 
-                                              number = 0, ex_tag = "", diff_rate = self.hard.Chart["Difficulty"]["Level"],
-                                              extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
+            pv_db_list.extend(
+                DIFF_STR.format(
+                    pv_id = self.pv_id, 
+                    diff_str = "hard", 
+                    number = 0, 
+                    ex_tag = "", 
+                    diff_rate = self.hard.Chart["Difficulty"]["Level"],
+                    extra = 0, 
+                    original = 1, 
+                    is_slide = int(check_slide)
+                ).splitlines()
+            )
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.hard.length=1")
         else:
             pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.hard.length=0")
@@ -409,24 +439,41 @@ class ChartInfo:
             dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
 
             check_slide = self.check_slide(self.extreme)
-            pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "extreme", 
-                                              number = extreme_count, ex_tag = "", diff_rate = self.extreme.Chart["Difficulty"]["Level"],
-                                              extra = 0, original = 1, is_slide = int(check_slide)).splitlines())
+            pv_db_list.extend(
+                DIFF_STR.format(
+                    pv_id = self.pv_id, 
+                    diff_str = "extreme", 
+                    number = extreme_count, 
+                    ex_tag = "", 
+                    diff_rate = self.extreme.Chart["Difficulty"]["Level"],
+                    extra = 0, 
+                    original = 1, 
+                    is_slide = int(check_slide)
+                ).splitlines()
+            )
             extreme_count += 1
         if self.ex_extreme:
             dsc_managet.read_csfm_data(self.ex_extreme)
             dsc_managet.creat_dsc_file(self.pv_id,Path("output","rom","script"))
 
             check_slide = self.check_slide(self.ex_extreme)
-            pv_db_list.extend(DIFF_STR.format(pv_id = self.pv_id, diff_str = "extreme", 
-                                              number = extreme_count, ex_tag = "_1", diff_rate = self.ex_extreme.Chart["Difficulty"]["Level"],
-                                              extra = 1, original = 0, is_slide = int(check_slide)).splitlines())
+            pv_db_list.extend(
+                DIFF_STR.format(
+                    pv_id = self.pv_id, 
+                    diff_str = "extreme", 
+                    number = extreme_count, 
+                    ex_tag = "_1", 
+                    diff_rate = self.ex_extreme.Chart["Difficulty"]["Level"],
+                    extra = 1, 
+                    original = 0, 
+                    is_slide = int(check_slide)
+                ).splitlines()
+            )
             extreme_count += 1
         pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.extreme.length={extreme_count}")
 
         # 添加encore
         pv_db_list.append(f"pv_{self.pv_id:03d}.difficulty.encore.length=0")
-
         
         #添加其他信息
         pv_db_list.append(f"pv_{self.pv_id:03d}.hidden_timing=0.3")

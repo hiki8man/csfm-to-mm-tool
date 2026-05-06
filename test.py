@@ -10,6 +10,7 @@ from dataclasses import dataclass, field, InitVar
 import enum
 import shutil
 import auto_creat_mod_spr_db as db_tool
+from ffmpeg_normalize import FFmpegNormalize
 
 def init_logging():
     logging.basicConfig(
@@ -25,10 +26,35 @@ def get_csfm_file() -> Generator[Path, None, None]:
         if re.match(r"\d+$",csfm_path.parent.name):
             yield csfm_path
 
+def create_output_folder() -> Path:
+    from datetime import datetime
+    folder_name: str = datetime.now().strftime(r"%Y%m%d_%H%M%S")
+    base_path: Path = Path("output", folder_name)
+
+    for dir in [r"rom//2d", r"rom//movie", r"rom//script", r"rom//sound//song"]:
+        base_path.joinpath(dir).mkdir(parents=True, exist_ok=True)
+
+    return base_path
+
 chart_info_dict:dict[int,ChartInfo] = {}
 
 if __name__ == "__main__":
     init_logging()
+    import os
+
+    os.environ['FFMPEG_PATH'] = str(Path().joinpath("ffmpeg", "ffmpeg.exe"))
+    BASE_PATH = create_output_folder()
+
+    normalizer = FFmpegNormalize(
+        target_level=-14,
+        loudness_range_target=11,
+        true_peak=-0.5,
+        audio_codec='libvorbis',
+        sample_rate=44100,
+        extra_output_options=['-aq', '6'],
+        video_disable=True,
+    )    
+
     for csfm_path in get_csfm_file():
         pv_id = int(csfm_path.parent.name)
         csfm_data = read_csfm(csfm_path)
@@ -44,17 +70,18 @@ if __name__ == "__main__":
 
     for chart_info in chart_info_dict.values():
         src_song:Path = chart_info.meta_data["song_path"]
-        dst_song = Path("output", "rom", "sound", "song", f"pv_{chart_info.pv_id:03d}{src_song.suffix}")
-        shutil.copy2(src_song, dst_song)
+        dst_song = BASE_PATH.joinpath("rom", "sound", "song", f"pv_{chart_info.pv_id:03d}.ogg")
+        normalizer.add_media_file(str(src_song), str(dst_song))
+        normalizer.run_normalization()
         
         pv_db_list += chart_info.export_chart()
     
     pv_db_list.sort()
-    with open("output//rom//mod_pv_db.txt","w",encoding="utf-8") as f:
+    with open(BASE_PATH.joinpath("rom", "mod_pv_db.txt"),"w",encoding="utf-8") as f:
         f.write("\n".join(pv_db_list))
     
     SPR_DB = db_tool.Manager()
-    spr_path = Path("output\\rom\\2d")
+    spr_path = BASE_PATH.joinpath("rom", "2d")
     farc_list = []
     for spr in spr_path.iterdir():
         _temp_file = Path(spr)
@@ -65,4 +92,4 @@ if __name__ == "__main__":
             farc_reader = db_tool.read_farc(farc_file)
             db_tool.add_farc_to_Manager(farc_reader, SPR_DB)
             
-    SPR_DB.write_db("output\\rom\\2d\\mod_spr_db.bin")
+    SPR_DB.write_db(spr_path.joinpath("mod_spr_db.bin"))
