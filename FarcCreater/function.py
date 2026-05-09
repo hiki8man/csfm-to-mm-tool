@@ -1,4 +1,5 @@
-from .FarcCreater import *
+from .FarcCreater import Farc, Compression, SprInfo
+from pathlib import Path
 from PIL import Image, ImageFile, ImageOps
 from PIL.Image import Transpose
 
