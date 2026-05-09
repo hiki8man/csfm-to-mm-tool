@@ -1,0 +1,72 @@
+注意：索引地址时会使用00进行分割
+Data
+	子集个数
+	地址
+	Metadata
+		子集个数
+		地址
+		Track Number //对应字符串地址
+		Disk Number //对应字符串地址
+        Song File Name //只有设置了才会有 对应字符串地址
+        Song Title //只有设置了才会有 对应字符串地址
+        Movie File Name //只有设置了才会有 对应字符串地址
+        Cover File Name //只有设置了才会有 对应字符串地址
+        Logo File Name //只有设置了才会有 对应字符串地址
+        Background File Name //只有设置了才会有 对应字符串地址
+
+	Chart
+		子集个数
+		地址
+		Scale //（8字节读字符串地址，用处不明）
+			Triangle
+			Square
+			Cross
+			Circle
+			SlideL
+			SlideR
+		Time // (前8字节为字符串地址，后8字节为double数值)
+			Song offset
+			Movie offset
+			Duration
+			Song Preview Start
+			Song Preview Duration
+		Targets
+			添加总数 （第一个8字节），子集为单个数值长度
+			子集个数（第二个8字节），子集为数值总长度
+			索引地址（第三个8字节）
+			Tick //int
+			Type //byte
+			Properties //bool
+			Hold  //bool
+			Chain //bool
+			Chance //bool
+			Position //(为两个float组成)
+			Angle //float
+			Frequency //float
+			Amplitude //float
+			Distance  //float
+		Tempo Map
+			添加总数 （第一个8字节），子集为单个数值长度
+			子集个数（第二个8字节），子集为数值总长度
+			索引地址（第三个8字节）
+			Tick //int
+			Tempo //float
+			Flying Time Factor //float 注意 100% 对应的是 1.0
+			Time Signature(拍数)//两个short组成的4字节数值，分别对应分子分母
+			Flags //二进制转int保存的4字节数值
+					从二进制分析
+					第一位是bpm是否勾选改变
+					第二位是Flying Time
+					第三位是拍号是否改变
+		Button Sound //四字节存储按键音ID
+			Button
+			Slide
+			Chain Slide
+			Slider Touch
+		Difficulty //单字节存储
+			难度名
+			是否为Ex槽
+			难度数整数部分
+			难度数小数部分
+	Debug
+		"Reserved" //只有这个字符串
