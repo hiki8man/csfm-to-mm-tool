@@ -1,4 +1,6 @@
 from .FarcCreater import *
+from PIL import Image, ImageFile, ImageOps
+from PIL.Image import Transpose
 
 def fit_image(img:Image.Image, width:int, height:int, alpha_edge:bool=False) -> Image.Image:
     img = ImageOps.fit(img, (width, height),Image.Resampling.LANCZOS)
