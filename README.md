@@ -7,3 +7,4 @@
 - [korenkonder](https://github.com/korenkonder): [KKdlib](https://github.com/korenkonder/KKdLib) 
 - [Microsoft](https://github.com/microsoft): [DirectXTex](https://github.com/microsoft/DirectXTex)
 - [JitterGlitch](https://github.com/JitterGlitch): [MegamixSpriteHelper](https://github.com/JitterGlitch/MegamixSpriteHelper)
+- [donmai-me](https://github.com/donmai-me): [WannaCRI](https://github.com/donmai-me/WannaCRI)
