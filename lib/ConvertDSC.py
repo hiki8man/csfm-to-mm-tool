@@ -98,7 +98,7 @@ class TickManager:
         bpm_list.reverse()
         cur_bpm:BPM = bpm_list.pop()
 
-        for i in range(note_list[-1].tick+1):
+        for i in range(note_list[0].tick+1):
             if bpm_list and bpm_list[-1].tick <= i:
                 cur_bpm = bpm_list.pop()
 
@@ -127,8 +127,7 @@ class TickManager:
         target_time = max(target_time,0)
 
         flying_time = max((button_time - target_time)//100, 1)
-        
-        return DSCNoteTime(target_time, flying_time)
+        return DSCNoteTime(flying_time, target_time)
         
     def get_dsc_data(self, flying_time:int, time:int) -> dict[int,bytes]:
         dsc_dict = defaultdict(bytes)
