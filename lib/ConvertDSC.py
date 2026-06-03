@@ -78,82 +78,48 @@ class TickManager:
     def __init__(self, _manager:BPMManager) -> None:
         self.bpm_manager:BPMManager = _manager
         self.target_flying_time:int = -1
-    
-    def tick_to_time(self, tick:int, chart_offset:int, note_count:int) -> DSCNoteTime:
-        """
-        计算给定 tick 对应的时间与飞入时间。
-        规则：
-        - 每个 BPM 点在其所在 tick 处开始一段最长 192 tick 的线性变速（飞入时间线性插值）；
-        - 如果在 192 tick 内又出现新的 BPM，则在新 BPM 处
-          以“当前瞬时飞入时间”为起点，重新开始一段新的 192 tick 线性变速，保证平滑连续。
-        返回值按数据原始标准
-        flying time 为1ms
-        command time 为0.01ms
-        """
-        if not self.bpm_manager.data_list:
+        # 记录每个tick对应的增加值
+        self.real_tick_value: list[float] = []
+        # 专门用于计算flying time的tick增加值表
+        self.fly_tick_value: list[float] = []
+
+    def create_tick_time_list(self, note_list:list[Note]) -> None:
+        if not note_list: return # 没有Note时用不到Tick时间计算 
+
+        # 以防万一还是清空下
+        self.real_tick_value.clear()
+        self.fly_tick_value.clear()
+
+        if not self.bpm_manager.data_list or len(self.bpm_manager.data_list) == 0:
             raise ValueError("没有读取到BPM表")
         
-        cur_bpm:BPM = BPM()
-        pre_bpm:BPM = BPM()
-        last_change_time:float = 0.0
-        last_change_index:int = 0
-        
-        for i in range(len(self.bpm_manager.data_list)):
-            bpm = self.bpm_manager.data_list[i]
-            if i == 0:
-                pre_bpm = BPM(tempo=-1) #用来标记在起始位置使用了变速
-                cur_bpm = bpm
-            elif cur_bpm.tempo == bpm.tempo and cur_bpm.flying_time_factor == bpm.flying_time_factor:
-                # 检查pre是否已执行完变速
-                pre_change_tick = cur_bpm.tick - pre_bpm.tick
-                if pre_change_tick >= 192:
-                    pre_bpm = cur_bpm
-                else:
-                    real_pre_fly = pre_bpm.flying_time + (cur_bpm.flying_time - pre_bpm.flying_time) * (pre_change_tick / 192)
-                    real_pre_bpm = 240000/real_pre_fly
-                    pre_bpm = BPM(tick=cur_bpm.tick, tempo=real_pre_bpm)
-                # 出现了新的bpm但没有产生变化，跳过
-                continue
-            else:
-                if bpm.tick >= tick:
-                    # 当前note在新bpm前面，跳出循环
-                    break
-                
-                # 检查pre是否已执行完变速
-                pre_change_tick = cur_bpm.tick - pre_bpm.tick
-                if pre_change_tick >= 192:
-                    pre_bpm = cur_bpm
-                else:
-                    real_pre_fly = pre_bpm.flying_time + (cur_bpm.flying_time - pre_bpm.flying_time) * (pre_change_tick / 192)
-                    real_pre_bpm = 240000/real_pre_fly
-                    pre_bpm = BPM(tick=cur_bpm.tick, tempo=real_pre_bpm)
-                
-                cur_bpm = bpm
-            
-            last_change_index = i
+        # 创建一个临时的BPM表，翻转使其起始位置在尾部，使用pop取出
+        bpm_list:list[BPM] = [i for i in self.bpm_manager.data_list]
+        bpm_list.reverse()
+        cur_bpm:BPM = bpm_list.pop()
 
-        for i in range(last_change_index):
-            start_bpm = self.bpm_manager.data_list[i]
-            end_bpm = self.bpm_manager.data_list[i + 1]
-            last_change_time += start_bpm.tick_time * (end_bpm.tick - start_bpm.tick)
-        
-        after_change_tick = tick - cur_bpm.tick
-        if after_change_tick > 192: #太好了是无BPM变速我们有救了
-            flying_time = cur_bpm.flying_time
-            
-        elif after_change_tick == 0: #变速过程中插入新的
-            flying_time = pre_bpm.flying_time
-            
-        elif pre_bpm.tempo == -1: #禁区放置Note，根据Comfy的行为使用0.1ms为单位处理Notes
-            flying_time = cur_bpm.flying_time * (after_change_tick / 192) - note_count * 0.1
-            
-        else: #变速给我去死啊啊啊啊啊啊啊
-            change_flying_time = (cur_bpm.flying_time - pre_bpm.flying_time) * (after_change_tick / 192)
-            flying_time = pre_bpm.flying_time + change_flying_time
+        for i in range(note_list[-1].tick+1):
+            if bpm_list and bpm_list[-1].tick <= i:
+                cur_bpm = bpm_list.pop()
 
-        command_time = int(cur_bpm.tick_time * after_change_tick + last_change_time - (flying_time * 100)) + chart_offset
-        return DSCNoteTime(int(flying_time), command_time)
-    
+            self.real_tick_value.append(cur_bpm.tick_time)
+            self.fly_tick_value.append(cur_bpm.flying_tick_time)            
+
+    def tick_to_time(self, tick:int, chart_offset:int) -> DSCNoteTime:
+        real_tick_length:int = len(self.real_tick_value)
+        if tick >= real_tick_length:
+            raise ValueError("tick超出范围")
+        
+        command_time:int = int(sum(self.real_tick_value[:tick + 1]))
+
+        # 飞入计算
+        if tick >= 192:
+            flying_time:int = int(sum(self.fly_tick_value[tick-192:tick]))
+        else:
+            flying_time:int = int(sum(self.fly_tick_value[:tick + 1]))
+
+        return DSCNoteTime(command_time, max(flying_time,1))
+        
     def get_dsc_data(self, flying_time:int, time:int) -> dict[int,bytes]:
         dsc_dict = defaultdict(bytes)
         if flying_time == self.target_flying_time:
@@ -225,19 +191,21 @@ class DSCManager:
     
     def get_note_dict(self) -> dict[int,bytes]:
         note_dict = defaultdict(bytes)
-        note_count = 0 # 用于处理在禁区放置Note时计算时间
+        # 初始化tick值表
+        self.tick_manager.create_tick_time_list(self.note_mananger.data_list)
+        
         for note_tuple in self.note_mananger.get_note():
             tick = note_tuple[0].tick
             chart_offset_dsc= int(self.chart_offset * 1000 * 100)
             
-            note_time = self.tick_manager.tick_to_time(tick, chart_offset_dsc, note_count)
+            note_time = self.tick_manager.tick_to_time(tick, chart_offset_dsc)
             data_dict:dict[int,bytes] = self.tick_manager.get_dsc_data(note_time.flying_time, note_time.command_time)
 
             for note in note_tuple:
                 data_dict[note_time.command_time] += note.dsc_data
             note_dict.update(data_dict)
             
-            note_count += 1
+
             
         return note_dict
 

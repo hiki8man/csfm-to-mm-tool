@@ -534,15 +534,25 @@ class BPM:
     tick : int = 0
     tempo : float = 160.0
     flying_time_factor : float = 1.0
+    
+    def __post_init__(self):
+        if self.tempo <= 0: 
+            raise ValueError("BPM值不能为负数或0")
 
     @property
-    def flying_time(self) -> float: # 飞入时间精度为1ms，直接给出整数
-        bpm = self.tempo * self.flying_time_factor
-        return 60 / bpm * 4 * 1000
-    
+    def tick_time(self) -> float: 
+        '''
+        旧代码
+        return 60 * 1000 * 100 / self.tempo * 4 / 192  
+        '''
+        # 时间单位以DSC为标注使用0.01ms
+        # 将计算换为常量值减少计算
+        return 125000 / self.tempo
     @property
-    def tick_time(self) -> float: # 时间精度为0.01ms，需要给小数
-        return 60 * 1000 * 100 / self.tempo / 48
+    def flying_tick_time(self) -> float: 
+        # 用于飞入时间
+        # 飞入时间单位为1ms，所以少两个0
+        return 1250 / (self.tempo * self.flying_time_factor)
 
 @dataclass
 class DSCNoteTime:
