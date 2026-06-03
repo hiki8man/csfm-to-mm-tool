@@ -551,8 +551,7 @@ class BPM:
     @property
     def flying_tick_time(self) -> float: 
         # 用于飞入时间
-        # 飞入时间单位为1ms，所以少两个0
-        return 1250 / (self.tempo * self.flying_time_factor)
+        return 125000 / (self.tempo * self.flying_time_factor)
 
 @dataclass
 class DSCNoteTime:

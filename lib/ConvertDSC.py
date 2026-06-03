@@ -105,20 +105,30 @@ class TickManager:
             self.real_tick_value.append(cur_bpm.tick_time)
             self.fly_tick_value.append(cur_bpm.flying_tick_time)            
 
-    def tick_to_time(self, tick:int, chart_offset:int) -> DSCNoteTime:
+    def tick_to_time(self, end_tick:int, chart_offset_dsc:int) -> DSCNoteTime:
+        '''
+        这里tick可能有点反直觉
+        简单来说储存的tick时间点比实际时间点早了一个tick，所以不需要tick + 1
+        '''
         real_tick_length:int = len(self.real_tick_value)
-        if tick >= real_tick_length:
+        if end_tick >= real_tick_length:
             raise ValueError("tick超出范围")
-        
-        command_time:int = int(sum(self.real_tick_value[:tick + 1]))
 
         # 飞入计算
-        if tick >= 192:
-            flying_time:int = int(sum(self.fly_tick_value[tick-192:tick]))
+        if end_tick >= 192:
+            flying_time:int = int(sum(self.fly_tick_value[end_tick - 192: end_tick]))
         else:
-            flying_time:int = int(sum(self.fly_tick_value[:tick + 1]))
+            flying_time:int = int(
+                sum(self.fly_tick_value[:end_tick]) + (192 - end_tick) * self.fly_tick_value[0]
+            )
 
-        return DSCNoteTime(command_time, max(flying_time,1))
+        button_time:int = int(sum(self.real_tick_value[:end_tick])) 
+        target_time:int = button_time - flying_time + chart_offset_dsc
+        target_time = max(target_time,0)
+
+        flying_time = max((button_time - target_time)//100, 1)
+        
+        return DSCNoteTime(target_time, flying_time)
         
     def get_dsc_data(self, flying_time:int, time:int) -> dict[int,bytes]:
         dsc_dict = defaultdict(bytes)
