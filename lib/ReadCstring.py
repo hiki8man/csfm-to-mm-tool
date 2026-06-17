@@ -1,7 +1,5 @@
 from typing import BinaryIO
-import logging
 
-logger = logging.getLogger("ReadCstring")
 
 class PaddingDataError(Exception):
     def __init__(self, message) -> None:
@@ -17,21 +15,15 @@ def isCorrupted(data: bytes) -> bool:
     return data.find(b"\x00") == -1
     
 def CheckData(data: bytes) -> None:
-    logger.debug("检测数据完整性")
 
     if isPadding(data):
-        logger.debug("数据字符串为填充数据")
         raise PaddingDataError("检测到填充数据")
     
     elif isCorrupted(data):
-        logger.debug("数据字符串不完整")
         raise ValueError("字符串数据不完整")
-    
-    logger.debug("数据完整性检测完成")
+
 
 def ReadCstring(data: bytes) -> bytes:
-    logger.debug("读取Cstring")
-
     CheckData(data)
     return data.split(b"\x00",1)[0]
 
@@ -43,15 +35,12 @@ def ReadCstringDict(data: bytes, encode:str ,startoffset: int = 0) -> dict[int,s
     while offset < lenght:
         try:
             bytestring = ReadCstring(data[offset:])
-            logger.debug(f"读取到的值 {bytestring}")
 
         except PaddingDataError:
-            logger.debug("读取到填充数据，不再读取后续内容")
             #读取到填充直接跳出
             break
         
         address = startoffset + offset
-        logger.debug(f"{address}地址对应的字符串{bytestring}")
         CstringDict[address] = bytestring.decode(encode)
         offset += len(bytestring) + 1
 
@@ -77,4 +66,4 @@ def ReadStrFromFile(file: BinaryIO, offset:int = 0, encode:str = "UTF-8") -> str
             string += string_char
 
     return string.decode(encode)
-        
+
