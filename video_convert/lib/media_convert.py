@@ -130,7 +130,7 @@ class ffmpeg_helper:
             return
         command_convert = self.command_convert_audio + self.command_convert_video
         ffmpeg_command  = self.command_head + self.command_input + command_convert + self.command_output
-        ffmpeg_program  = command_popen(ffmpeg_command,stdout=PIPE,stderr=STDOUT,encoding="UTF-8")
+        ffmpeg_program  = command_popen(ffmpeg_command,stdout=PIPE,stderr=STDOUT,encoding="UTF-8",errors="backslashreplace")
         file_time = None
         log_error_str = ""
         for log_text in ffmpeg_program.stdout:
