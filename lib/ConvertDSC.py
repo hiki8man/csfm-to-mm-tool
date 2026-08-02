@@ -1,5 +1,5 @@
 
-from .CsfmDataClass import BPM,Note,DSCCommandID,Difficulty,DSCNoteTime,ComfyFile
+from .CsfmDataClass import BPM,Note,DSCCommandID,Difficulty,DSCNoteTime,ComfyFile, ComfyNoteID
 from pathlib import Path
 from collections import defaultdict
 from pprint import pprint
@@ -203,6 +203,12 @@ class DSCManager:
         # 初始化tick值表
         self.tick_manager.create_tick_time_list(self.note_mananger.data_list)
         
+        # 修正 comfy 对chain slide的特殊处理，除了滑条头其他的都应该+32px偏移
+        # [FIXME] 这里需要重构，目前的实现不够优雅
+        
+        on_chain_slide_L: Note|None = None
+        on_chain_slide_R: Note|None = None
+        
         for note_tuple in self.note_mananger.get_note():
             tick = note_tuple[0].tick
             chart_offset_dsc= int(self.chart_offset * 1000 * 100)
@@ -210,12 +216,35 @@ class DSCManager:
             note_time = self.tick_manager.tick_to_time(tick, chart_offset_dsc)
             data_dict:dict[int,bytes] = self.tick_manager.get_dsc_data(note_time.flying_time, note_time.command_time)
 
+
+                
             for note in note_tuple:
+                if note.type == ComfyNoteID.SLIDE_L and on_chain_slide_L is not None and note != on_chain_slide_L:
+                    note.position = (note.position[0] - 32, note.position[1])
+                if note.type == ComfyNoteID.SLIDE_R and on_chain_slide_R is not None and note != on_chain_slide_R:
+                    note.position = (note.position[0] + 32, note.position[1])
+
                 data_dict[note_time.command_time] += note.dsc_data
+                
+            for note in note_tuple:
+                if note.type == ComfyNoteID.SLIDE_L and note.ischain:
+                    on_chain_slide_L = note
+                    break
+
+                on_chain_slide_L = None
+                
+            for note in note_tuple:
+                if note.type == ComfyNoteID.SLIDE_R and note.ischain:
+                    on_chain_slide_R = note
+                    break
+
+                on_chain_slide_R = None
+
             note_dict.update(data_dict)
             
 
-            
+        print(note_dict[4687])
+        print(note_dict[9375])
         return note_dict
 
     def get_dsc_dict(self) -> dict[int,bytes]:
