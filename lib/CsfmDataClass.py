@@ -4,6 +4,7 @@ from pathlib import Path
 from enum import IntEnum
 import FarcCreater
 from typing import TypedDict, Optional, Any
+import lib.se_enum as btn_se
 
 import logging
 
@@ -286,6 +287,8 @@ class ChartInfo:
     hard: Optional[ComfyFile] = None
     extreme: Optional[ComfyFile] = None
     ex_extreme: Optional[ComfyFile] = None
+    
+    bnt_tuple: tuple[int, int, int, int] = (1, 0, 0, 0)
 
     def update_chart(self, info:ComfyFile) -> None:
         # 将IsEx转换为Difficulty枚举
@@ -305,7 +308,9 @@ class ChartInfo:
             self.ex_extreme = info
         else:
             raise ValueError(f"未知的难度数: {diff_type}")
-
+        
+        self.bnt_tuple = info.Chart["Button Sounds"]
+    
     def update_meta(self, info:ComfyFile) -> None:
         if info:
             self.meta_data = {
@@ -360,11 +365,12 @@ class ChartInfo:
         pv_db_list:list[str] = []
         dsc_managet = DSCManager()
         # 填写通用部分
+        chain_slide_se = btn_se.CHAINSLIDE_SE_MAP[self.bnt_tuple[2]]
         pv_db_list.append(f'pv_{self.pv_id:03d}.bpm={self.meta_data["bpm"]}')
-        pv_db_list.append(f'pv_{self.pv_id:03d}.chainslide_failure_name=slide_ng03')
-        pv_db_list.append(f'pv_{self.pv_id:03d}.chainslide_first_name=slide_long02a')
-        pv_db_list.append(f'pv_{self.pv_id:03d}.chainslide_sub_name=slide_button08')
-        pv_db_list.append(f'pv_{self.pv_id:03d}.chainslide_success_name=slide_ok03')
+        pv_db_list.append(f'pv_{self.pv_id:03d}.chainslide_failure_name={chain_slide_se.failure}')
+        pv_db_list.append(f'pv_{self.pv_id:03d}.chainslide_first_name={chain_slide_se.first}')
+        pv_db_list.append(f'pv_{self.pv_id:03d}.chainslide_sub_name={chain_slide_se.sub}')
+        pv_db_list.append(f'pv_{self.pv_id:03d}.chainslide_success_name={chain_slide_se.success}')
         pv_db_list.append(f'pv_{self.pv_id:03d}.date=20260205')
         # 添加难度pvdb
         # 添加easy
@@ -497,8 +503,12 @@ class ChartInfo:
         if self.meta_data["sabi_start"]:
             pv_db_list.append(f"pv_{self.pv_id:03d}.sabi.start_time={self.meta_data["sabi_start"]}")
         # 添加音效，目前使用默认音效
-        pv_db_list.append(f"pv_{self.pv_id:03d}.se_name=01_button1")
-        pv_db_list.append(f"pv_{self.pv_id:03d}.slide_name=slide_se13")
+        bnt_se = btn_se.BTN_SE_MAP[self.bnt_tuple[0]][0]
+        pv_db_list.append(f"pv_{self.pv_id:03d}.se_name={bnt_se}")
+        
+        slide_se = btn_se.SLIDE_SE_MAP[self.bnt_tuple[1]][0]
+        pv_db_list.append(f"pv_{self.pv_id:03d}.slide_name={slide_se}")
+        
         pv_db_list.append(f"pv_{self.pv_id:03d}.slidertouch_name=slide_windchime")
         # 添加歌曲信息
         pv_db_list.append(f"pv_{self.pv_id:03d}.song_file_name=rom/sound/song/pv_{self.pv_id:03d}.ogg")
