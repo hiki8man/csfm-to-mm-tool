@@ -502,8 +502,13 @@ class ChartInfo:
             pv_db_list.append(f"pv_{self.pv_id:03d}.sabi.play_time={self.meta_data["sabi_play"]}")
         if self.meta_data["sabi_start"]:
             pv_db_list.append(f"pv_{self.pv_id:03d}.sabi.start_time={self.meta_data["sabi_start"]}")
-        # 添加音效，目前使用默认音效
-        bnt_se = btn_se.BTN_SE_MAP[self.bnt_tuple[0]][0]
+    
+        # 添加音效，神秘comfy版本会设置音效id为0，强制改为1
+        if self.bnt_tuple[0] == 0:
+             bnt_se = btn_se.BTN_SE_MAP[1][0]
+        else:
+            bnt_se = btn_se.BTN_SE_MAP[self.bnt_tuple[0]][0]
+
         pv_db_list.append(f"pv_{self.pv_id:03d}.se_name={bnt_se}")
         
         slide_se = btn_se.SLIDE_SE_MAP[self.bnt_tuple[1]][0]
