@@ -91,9 +91,10 @@ if __name__ == "__main__":
         normalizer.add_media_file(str(src_song), str(dst_song))
         normalizer.run_normalization()
         '''
-        media_info = ffprobe_helper().get_media_info(src_song)
-        if media_info["audio"] != None:
-            convert_ogg().start(media_info["audio"], dst_song)
+        if isinstance(src_song, Path) and src_song.exists():
+            media_info = ffprobe_helper().get_media_info(src_song)
+            if media_info["audio"] != None:
+                convert_ogg().start(media_info["audio"], dst_song)
 
     
     pv_db_list.sort()
